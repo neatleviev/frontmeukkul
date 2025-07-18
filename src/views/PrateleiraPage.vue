@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import PrateleiraProdutos from '@/components/PrateleiraProdutos.vue'
 import { useProdutoStore } from '@/stores/useProdutoStore'
+import BotaoVoltar from '@/components/BotaoVoltar.vue'
 
 const produtoStore = useProdutoStore()
 const route = useRoute()
@@ -22,6 +23,10 @@ const intervalMap = ref<Record<number, any>>({})
 
 onMounted(() => {
   isTouchDevice.value = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+})
+
+onBeforeUnmount(() => {
+  Object.values(intervalMap.value).forEach(clearInterval)
 })
 
 function openDropdown(productId: number) {
@@ -123,21 +128,23 @@ watch(
 </script>
 
 <template>
-  <div class="main-p-4">
-    <h1 class="text-3xl font-bold mb-4 text-[#d56aa0] text-center">
-      Produtos da Prateleira:
+  <div class="p-4 relative">
+    <h1 class="text-3xl font-bold text-[#d56aa0] text-center mb-4">
       <span v-if="prateleiraNome">{{ prateleiraNome }}</span>
-      <span v-else-if="prateleiraId">ID {{ prateleiraId }}</span>
-      <span v-else>Nenhuma Selecionada</span>
     </h1>
+
+    <div class="absolute left-4 top-4">
+      <BotaoVoltar />
+    </div>
 
     <PrateleiraProdutos :prateleiraId="prateleiraId">
       <template #default="{ loading, error, data, loaded }">
-        <div v-if="loading" class="text-gray-400">Carregando produtos...</div>
-        <div v-else-if="error" class="text-red-500">Erro: {{ error }}</div>
+        <!-- IMPLEMENTAR O EFEITO QUE INDICA CARREGANDO BONITO EM BREVE -->
+        <!-- <div v-if="loading" class="text-gray-400">Carregando produtos...</div> -->
+        <div v-if="error" class="text-red-500">Erro: {{ error }}</div>
         <div v-else-if="data.length === 0 && loaded" class="text-gray-500">Nenhum produto encontrado.</div>
         <div v-else>
-          <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
             <router-link
               v-for="product in data"
               :key="product.id"
@@ -165,11 +172,12 @@ watch(
 
                   navigate()
                 }"
-                class="cursor-pointer p-4 border rounded bg-white hover:shadow transition relative"
+                class="cursor-pointer p-4 border rounded bg-white hover:shadow transition relative flex flex-col h-full"
               >
+                <!-- Inicia o slideshow automaticamente -->
                 <div
                   class="relative w-full h-48 overflow-hidden mb-4 bg-white"
-                  @mouseenter="startImageRotation(product.id, product.fotos)"
+                  v-if="startImageRotation(product.id, product.fotos) || true"
                 >
                   <img
                     v-for="(foto, i) in product.fotos"
@@ -191,13 +199,15 @@ watch(
                   Preço: R$ {{ product.attributes?.preco || product.preco?.toFixed(2) }}
                 </p>
 
-                <!-- Quantidade e Variação -->
-                <div class="text-sm text-gray-600">
+                <!-- Variações + Quantidade -->
+                <div class="text-sm text-gray-600 mt-4 flex flex-col gap-2 mt-auto">
                   <template v-if="product.variantes?.length">
-                    <label class="block mb-1 font-medium">Variações disponíveis:</label>
-                    <div class="relative mb-2"
+                    <label class="block font-medium">Variações disponíveis:</label>
+                    <div
+                      class="relative"
                       @mouseenter="!isTouchDevice && openDropdown(product.id)"
-                      @mouseleave="!isTouchDevice && closeDropdown(product.id)">
+                      @mouseleave="!isTouchDevice && closeDropdown(product.id)"
+                    >
                       <button
                         class="w-full border rounded px-2 py-1 text-sm bg-white hover:bg-gray-50 flex justify-between items-center"
                         @click.stop="toggleDropdown(product.id)"
@@ -224,24 +234,28 @@ watch(
                         </div>
                       </div>
                     </div>
+                  </template>
 
-                    <div class="flex items-center border rounded w-max overflow-hidden">
-                      <button @click.stop="diminuirQuantidade(product.id)" class="px-3">-</button>
-                      <span class="px-4">{{ quantityMap[product.id] || 0 }}</span>
-                      <button @click.stop="aumentarQuantidade(product.id, selectedVarianteMap[product.id]?.estoqueVariante || 0)" class="px-3">+</button>
+                  <template v-if="(product.variantes?.length && selectedVarianteMap[product.id]) || (!product.variantes?.length && product.estoqueUnico)">
+                    <div class="flex justify-between items-center mt-2">
+                      <span class="font-medium text-sm text-[#d56aa0]">pegar</span>
+                      <div class="flex items-center border rounded overflow-hidden">
+                        <button @click.stop="diminuirQuantidade(product.id)" class="px-3">-</button>
+                        <span class="px-4">{{ quantityMap[product.id] || 1 }}</span>
+                        <button
+                          @click.stop="aumentarQuantidade(
+                            product.id,
+                            product.variantes?.length
+                              ? selectedVarianteMap[product.id]?.estoqueVariante || 0
+                              : product.estoqueUnico
+                          )"
+                          class="px-3"
+                        >+</button>
+                      </div>
                     </div>
                   </template>
 
-                  <template v-else-if="product.estoqueUnico && product.estoqueUnico > 0">
-                    <label class="block mb-1 font-medium">Quantidade:</label>
-                    <div class="flex items-center border rounded w-max overflow-hidden">
-                      <button @click.stop="diminuirQuantidade(product.id)" class="px-3">-</button>
-                      <span class="px-4">{{ quantityMap[product.id] || 1 }}</span>
-                      <button @click.stop="aumentarQuantidade(product.id, product.estoqueUnico)" class="px-3">+</button>
-                    </div>
-                  </template>
-
-                  <template v-else>
+                  <template v-else-if="!product.variantes?.length && !product.estoqueUnico">
                     <span class="text-gray-500">Produto sem estoque</span>
                   </template>
                 </div>
@@ -255,10 +269,6 @@ watch(
 </template>
 
 <style scoped>
-.main-p-4 {
-  padding: 1rem;
-}
-
 img {
   transition: opacity 1s ease-in-out;
 }

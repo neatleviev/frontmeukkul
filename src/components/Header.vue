@@ -4,7 +4,10 @@
       class="flex flex-col items-center gap-5 w-full max-w-screen-xl md:flex-row md:justify-between md:items-end mx-auto"
     >
       <div class="flex flex-col items-center md:items-start">
-        <div class="text-3xl font-bold mb-1">meukkul</div>
+        <router-link to="/" class="text-3xl font-bold mb-1 text-white hover:opacity-80 transition cursor-pointer">
+  meukkul
+</router-link>
+
         <div class="mt-0">
           <input
             type="text"
@@ -14,7 +17,7 @@
         </div>
       </div>
 
-      <div
+      <nav
         class="relative w-[90vw] max-w-[360px] md:w-[360px] flex-shrink-0"
       >
         <div class="overflow-hidden h-[50px] w-full relative">
@@ -118,7 +121,7 @@
             </svg>
           </button>
         </div>
-      </div>
+      </nav>
 
       <div
         class="text-2xl cursor-pointer whitespace-nowrap order-4 md:order-none"
@@ -171,7 +174,7 @@ let intervalId: number | null = null;
 const groupIndex = ref(0);
 const itemsPerGroup = 3;
 const totalGroups = ref(0);
-const carouselSpeed = 4000;
+const carouselSpeed = 3000;
 const dropdownCoords = ref({ top: 0, left: 0 });
 
 let closeDropdownTimeout: ReturnType<typeof setTimeout> | null = null;

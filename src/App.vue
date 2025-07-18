@@ -5,8 +5,6 @@ import { RouterView, RouterLink } from 'vue-router';
 
 <template>
   <Header />
-  <nav class="main-nav">
-  </nav>
   <main>
     <RouterView />
   </main>
@@ -17,29 +15,11 @@ import { RouterView, RouterLink } from 'vue-router';
 body {
   margin: 0;
   font-family: 'Segoe UI', sans-serif;
-  background-color: #f2eee8;
+  background-color: withe;
 }
 
 main {
   padding: 20px;
 }
 
-.main-nav {
-  text-align: center;
-  padding: 15px;
-  background-color: #f8f8f8;
-  border-bottom: 1px solid #eee;
-}
-
-.main-nav a {
-  margin: 0 10px;
-  text-decoration: none;
-  color: #d56aa0;
-  font-weight: bold;
-}
-
-.main-nav a.router-link-active {
-  color: #a04a74;
-  text-decoration: underline;
-}
 </style>
