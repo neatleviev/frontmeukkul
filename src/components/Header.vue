@@ -124,10 +124,12 @@
       </nav>
 
       <div
-        class="text-2xl cursor-pointer whitespace-nowrap order-4 md:order-none"
-      >
-        sacola
-      </div>
+  class="text-2xl cursor-pointer whitespace-nowrap order-4 md:order-none"
+  @click="sacolaRef?.abrirSacola()"
+>
+  sacola
+</div>
+
     </div>
   </header>
 
@@ -148,10 +150,17 @@
     </router-link>
 
   </div>
+
+  <SacolaLateral ref="sacolaRef" />
+
 </template>
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from 'vue';
+import SacolaLateral from '@/components/sacola/sacolaLateral.vue'
+
+
+const sacolaRef = ref<InstanceType<typeof SacolaLateral> | null>(null)
 
 interface Prateleira {
   id: number;

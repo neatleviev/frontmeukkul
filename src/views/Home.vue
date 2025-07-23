@@ -38,8 +38,9 @@ const superVitrines = ref<any[]>([])
 onMounted(async () => {
   try {
     const response = await fetch(
-      'https://nice-eggs-d79e24d7a7.strapiapp.com/api/super-vitrines?populate=produtos.fotos'
-    )
+  'https://nice-eggs-d79e24d7a7.strapiapp.com/api/super-vitrines?populate[produtos][populate]=*'
+)
+
 
     if (!response.ok) throw new Error(`Erro na requisição: ${response.status}`)
 
@@ -47,12 +48,16 @@ onMounted(async () => {
     superVitrines.value = json.data.map((item: any) => ({
       id: item.id,
       nome: item.nome,
-      produtos: item.produtos || []
+      produtos: (item.produtos || []).map((product: any) => ({
+        ...product,
+        descricaoTratada: (product.descricao || []).map((p: any) => p.children?.[0]?.text || '')
+      }))
     }))
-
-    console.log('Super vitrines carregadas:', superVitrines.value)
   } catch (error) {
     console.error('Erro ao buscar super vitrines:', error)
   }
 })
+
+
+
 </script>

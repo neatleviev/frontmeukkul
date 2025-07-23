@@ -17,10 +17,10 @@ const routes = [
     name: 'DetalhesProduto',
     component: () => import('../views/DetalhesProduto.vue'),
     props: true
-  }
+  },
+
 ]
 
-// ⛳ ESTA LINHA FALTAVA
 const router = createRouter({
   history: createWebHistory(),
   routes

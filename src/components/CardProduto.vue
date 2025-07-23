@@ -4,16 +4,13 @@
     @click="navegarParaDetalhes"
     class="cursor-pointer p-4 border rounded bg-white hover:shadow transition relative flex flex-col h-full"
   >
-    <!-- Badge (opcional) -->
+    <!-- Badge opcional -->
     <div class="absolute top-2 right-2" v-if="$slots.badge">
       <slot name="badge" />
     </div>
 
     <!-- Galeria de imagens -->
-    <div
-      class="relative w-full h-48 overflow-hidden mb-4 bg-white"
-      v-if="product.fotos?.length"
-    >
+    <div class="relative w-full h-48 overflow-hidden mb-4 bg-white" v-if="product.fotos?.length">
       <img
         v-for="(foto, i) in product.fotos"
         :key="i"
@@ -27,6 +24,7 @@
       />
     </div>
 
+    <!-- Nome e preço -->
     <h2 class="text-lg font-semibold text-[#d56aa0] mb-2">
       {{ product.nome || 'Sem nome' }}
     </h2>
@@ -34,43 +32,40 @@
       Preço: R$ {{ product.preco?.toFixed(2) || 'N/A' }}
     </p>
 
-    <!-- Slot customizável acima do botão (opcional) -->
+    <!-- Slot opcional acima do botão -->
     <slot name="top" />
 
-    <!-- Variações e botão de pegar -->
-    <div class="text-sm text-gray-600 mt-4 flex flex-col gap-2 mt-auto">
+    <!-- Variações + Botão -->
+    <div class="text-sm text-gray-600 mt-4 flex flex-col gap-2 mt-auto" @click.stop>
+      <!-- Dropdown de variantes -->
       <template v-if="product.variantes?.length">
         <label class="block font-medium">Variações disponíveis:</label>
         <div
           class="relative"
-          @mouseenter="!isTouchDevice && openDropdown(product.id)"
-          @mouseleave="!isTouchDevice && closeDropdown(product.id)"
+          @mouseenter="!isTouchDevice && openDropdown()"
+          @mouseleave="!isTouchDevice && closeDropdown()"
         >
           <button
             class="w-full border rounded px-2 py-1 text-sm bg-white hover:bg-gray-50 flex justify-between items-center"
-            @click.stop="toggleDropdown(product.id)"
+            @click.stop="toggleDropdown"
           >
             <span>
-              {{
-                selectedVarianteMap[product.id]
-                  ? formatarVariante(selectedVarianteMap[product.id])
-                  : 'Selecione uma variação'
-              }}
+              {{ selectedVariante ? formatarVariante(selectedVariante) : 'Selecione uma variação' }}
             </span>
             <span class="ml-2">▾</span>
           </button>
 
           <div
-            v-if="dropdowns[product.id]"
+            v-if="dropdownVisible"
             class="absolute left-0 bottom-full mb-1 w-full border rounded bg-white shadow-lg z-50 max-h-48 overflow-y-auto"
-            @mouseenter="onDropdownMouseEnter(product.id)"
-            @mouseleave="closeDropdown(product.id)"
+            @mouseenter="onDropdownMouseEnter"
+            @mouseleave="closeDropdown"
           >
             <div
               v-for="(v, i) in product.variantes"
               :key="i"
               class="px-2 py-1 hover:bg-gray-100 cursor-pointer text-sm"
-              @click.stop="selectVariante(product.id, product, v)"
+              @click.stop="selectVariante(v)"
             >
               {{ formatarVariante(v) }}
             </div>
@@ -78,19 +73,21 @@
         </div>
       </template>
 
-      <template v-if="(product.variantes?.length && selectedVarianteMap[product.id]) || (!product.variantes?.length && product.estoqueUnico)">
+      <!-- Botão "pegar" + quantidade -->
+      <template v-if="(product.variantes?.length && selectedVariante) || (!product.variantes?.length && product.estoqueUnico)">
         <div class="flex justify-between items-center mt-2">
-          <span class="font-medium text-sm text-[#d56aa0]">pegar</span>
+          <button
+            @click.stop="adicionarNaSacola"
+            class="text-[#d56aa0] text-sm font-medium hover:underline"
+          >
+            pegar
+          </button>
+
           <div class="flex items-center border rounded overflow-hidden">
-            <button @click.stop="diminuirQuantidade(product.id)" class="px-3">-</button>
-            <span class="px-4">{{ quantityMap[product.id] || 1 }}</span>
+            <button @click.stop="diminuirQuantidade" class="px-3">-</button>
+            <span class="px-4">{{ quantidade }}</span>
             <button
-              @click.stop="aumentarQuantidade(
-                product.id,
-                product.variantes?.length
-                  ? selectedVarianteMap[product.id]?.estoqueVariante || 0
-                  : product.estoqueUnico
-              )"
+              @click.stop="aumentarQuantidade"
               class="px-3"
             >+</button>
           </div>
@@ -102,7 +99,7 @@
       </template>
     </div>
 
-    <!-- Slot final (footer com botão, promo, etc) -->
+    <!-- Slot final -->
     <slot name="footer" />
   </li>
 </template>
@@ -111,22 +108,88 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProdutoStore } from '@/stores/useProdutoStore'
+import { useSacolaStore } from '@/stores/useSacolaStore'
 
-const props = defineProps<{
-  product: any
-}>()
+const props = defineProps<{ product: any }>()
 
-const produtoStore = useProdutoStore()
 const router = useRouter()
+const produtoStore = useProdutoStore()
+const sacolaStore = useSacolaStore()
+
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+
+// Estados internos
+const dropdownVisible = ref(false)
+const closeTimer = ref<number | null>(null)
+const selectedVariante = ref<any>(null)
+const quantidade = ref(1)
 const currentImageIndex = ref(0)
 let interval: any = null
 
-const selectedVarianteMap = ref<Record<number, any>>({})
-const quantityMap = ref<Record<number, number>>({})
-const dropdowns = ref<Record<number, boolean>>({})
-const closeTimers = ref<Record<number, number>>({})
+// Funções
+function formatarVariante(v: any): string {
+  if (!v) return ''
+  return `${v.tamanho || ''} | ${v.cor || ''} | ${v.aroma || ''} | ${v.funcao || ''}`
+}
 
-const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+function selectVariante(variante: any) {
+  selectedVariante.value = variante
+  quantidade.value = 1
+  const produtoComVariante = {
+    ...props.product,
+    selectedVariante: variante,
+    quantidadeSelecionada: 1
+  }
+  produtoStore.setProdutoSelecionado(produtoComVariante)
+  localStorage.setItem('produtoSelecionado', JSON.stringify(produtoComVariante))
+  dropdownVisible.value = false
+}
+
+function toggleDropdown() {
+  dropdownVisible.value = !dropdownVisible.value
+}
+
+function openDropdown() {
+  if (closeTimer.value) clearTimeout(closeTimer.value)
+  dropdownVisible.value = true
+}
+
+function closeDropdown() {
+  closeTimer.value = window.setTimeout(() => {
+    dropdownVisible.value = false
+  }, 200)
+}
+
+function onDropdownMouseEnter() {
+  if (closeTimer.value) clearTimeout(closeTimer.value)
+}
+
+function aumentarQuantidade() {
+  const max = props.product.variantes?.length
+    ? selectedVariante.value?.estoqueVariante || 0
+    : props.product.estoqueUnico
+
+  if (quantidade.value < max) quantidade.value++
+}
+
+function diminuirQuantidade() {
+  if (quantidade.value > 1) quantidade.value--
+}
+
+function inicializarQuantidadeUnica(product: any) {
+  if (!product.variantes?.length && product.estoqueUnico && quantidade.value < 1) {
+    quantidade.value = 1
+  }
+}
+
+function adicionarNaSacola() {
+  const produtoSacola = {
+    ...props.product,
+    selectedVariante: selectedVariante.value,
+    quantidadeSelecionada: quantidade.value
+  }
+  sacolaStore.adicionarProduto(produtoSacola)
+}
 
 function navegarParaDetalhes() {
   produtoStore.setProdutoSelecionado(props.product)
@@ -134,62 +197,7 @@ function navegarParaDetalhes() {
   router.push(`/produto/${props.product.id}`)
 }
 
-function formatarVariante(v: any): string {
-  if (!v) return ''
-  return `${v.tamanho || ''} | ${v.cor || ''} | ${v.aroma || ''} | ${v.funcao || ''}`
-}
-
-function aumentarQuantidade(productId: number, max: number) {
-  if (quantityMap.value[productId] < max) quantityMap.value[productId]++
-}
-
-function diminuirQuantidade(productId: number) {
-  if (quantityMap.value[productId] > 1) quantityMap.value[productId]--
-}
-
-function inicializarQuantidadeUnica(product: any) {
-  if (!product.variantes?.length && product.estoqueUnico && !quantityMap.value[product.id]) {
-    quantityMap.value[product.id] = 1
-  }
-}
-
-function openDropdown(productId: number) {
-  clearTimeout(closeTimers.value[productId])
-  dropdowns.value[productId] = true
-}
-
-function closeDropdown(productId: number) {
-  closeTimers.value[productId] = window.setTimeout(() => {
-    dropdowns.value[productId] = false
-  }, 200)
-}
-
-function onDropdownMouseEnter(productId: number) {
-  const timeoutId = closeTimers.value[productId]
-  if (timeoutId) {
-    clearTimeout(timeoutId)
-  }
-}
-
-function toggleDropdown(productId: number) {
-  dropdowns.value[productId] = !dropdowns.value[productId]
-}
-
-function selectVariante(productId: number, product: any, variante: any) {
-  selectedVarianteMap.value[productId] = variante
-  quantityMap.value[productId] = 1
-
-  const produtoComVariante = {
-    ...product,
-    selectedVariante: variante,
-    quantidadeSelecionada: 1
-  }
-
-  produtoStore.setProdutoSelecionado(produtoComVariante)
-  localStorage.setItem('produtoSelecionado', JSON.stringify(produtoComVariante))
-}
-
-// ✅ Move a rotação da imagem para o ciclo de vida do componente
+// Rotação de imagem automática
 onMounted(() => {
   const fotos = props.product?.fotos
   if (!fotos || fotos.length <= 1) return

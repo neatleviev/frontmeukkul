@@ -19,11 +19,12 @@ async function fetchData(id: string) {
   try {
     const res = await fetch(`${strapiUrl}/api/produtos?filters[prateleiras][id][$eq]=${id}&populate=*`)
     const json = await res.json()
+    console.log(json.data)
     data.value = (json.data || []).map((product) => ({...product,
       descricaoTratada: (product.descricao || []).map(p => p.children?.[0]?.text || '')
     }));
 
-    console.log(json.data)
+    
   } catch (err: any) {
     error.value = err.message || 'Erro desconhecido'
   } finally {
