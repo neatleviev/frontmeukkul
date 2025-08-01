@@ -4,12 +4,10 @@
     @click="navegarParaDetalhes"
     class="cursor-pointer p-4 border rounded bg-white hover:shadow transition relative flex flex-col h-full"
   >
-    <!-- Badge opcional -->
     <div class="absolute top-2 right-2" v-if="$slots.badge">
       <slot name="badge" />
     </div>
 
-    <!-- Galeria de imagens -->
     <div class="relative w-full h-48 overflow-hidden mb-4 bg-white" v-if="product.fotos?.length">
       <img
         v-for="(foto, i) in product.fotos"
@@ -24,7 +22,6 @@
       />
     </div>
 
-    <!-- Nome e preço -->
     <h2 class="text-lg font-semibold text-[#d56aa0] mb-2">
       {{ product.nome || 'Sem nome' }}
     </h2>
@@ -32,12 +29,9 @@
       Preço: R$ {{ product.preco?.toFixed(2) || 'N/A' }}
     </p>
 
-    <!-- Slot opcional acima do botão -->
     <slot name="top" />
 
-    <!-- Variações + Botão -->
     <div class="text-sm text-gray-600 mt-4 flex flex-col gap-2 mt-auto" @click.stop>
-      <!-- Dropdown de variantes -->
       <template v-if="product.variantes?.length">
         <label class="block font-medium">Variações disponíveis:</label>
         <div
@@ -73,25 +67,23 @@
         </div>
       </template>
 
-      <!-- Botão "pegar" + quantidade -->
       <template v-if="(product.variantes?.length && selectedVariante) || (!product.variantes?.length && product.estoqueUnico)">
         <div class="flex justify-between items-center mt-2">
           <button
             @click.stop="adicionarNaSacola"
             class="text-[#d56aa0] text-sm font-medium hover:underline"
+            :disabled="estoqueDisponivel <= 0"
           >
-            pegar
+            {{ estoqueDisponivel <= 0 ? 'Tudo adicionado' : 'pegar' }}
           </button>
 
           <div class="flex items-center border rounded overflow-hidden">
             <button @click.stop="diminuirQuantidade" class="px-3">-</button>
             <span class="px-4">{{ quantidade }}</span>
-            <button
-              @click.stop="aumentarQuantidade"
-              class="px-3"
-            >+</button>
+            <button @click.stop="aumentarQuantidade" class="px-3" :disabled="quantidade >= estoqueDisponivel">+</button>
           </div>
         </div>
+        <span v-if="estoqueDisponivel <= 0" class="text-red-500 text-xs">Todas as unidades disponíveis já estão na sacola.</span>
       </template>
 
       <template v-else-if="!product.variantes?.length && !product.estoqueUnico">
@@ -99,34 +91,48 @@
       </template>
     </div>
 
-    <!-- Slot final -->
     <slot name="footer" />
   </li>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProdutoStore } from '@/stores/useProdutoStore'
 import { useSacolaStore } from '@/stores/useSacolaStore'
 
 const props = defineProps<{ product: any }>()
-
 const router = useRouter()
 const produtoStore = useProdutoStore()
 const sacolaStore = useSacolaStore()
 
-const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-
-// Estados internos
 const dropdownVisible = ref(false)
 const closeTimer = ref<number | null>(null)
 const selectedVariante = ref<any>(null)
-const quantidade = ref(1)
+const quantidade = ref(0)
 const currentImageIndex = ref(0)
 let interval: any = null
 
-// Funções
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+
+const emSacola = computed(() => {
+  const item = sacolaStore.itens.find((item: any) =>
+    item.id === props.product.id &&
+    (!props.product.variantes?.length || item.selectedVariante?.id === selectedVariante.value?.id)
+  )
+  return item?.quantidadeSelecionada || 0
+})
+
+const estoqueTotal = computed(() => {
+  return props.product.variantes?.length
+    ? selectedVariante.value?.estoqueVariante || 0
+    : props.product.estoqueUnico || 0
+})
+
+const estoqueDisponivel = computed(() => {
+  return estoqueTotal.value - emSacola.value
+})
+
 function formatarVariante(v: any): string {
   if (!v) return ''
   return `${v.tamanho || ''} | ${v.cor || ''} | ${v.aroma || ''} | ${v.funcao || ''}`
@@ -134,11 +140,11 @@ function formatarVariante(v: any): string {
 
 function selectVariante(variante: any) {
   selectedVariante.value = variante
-  quantidade.value = 1
+  quantidade.value = estoqueDisponivel.value > 0 ? 1 : 0
   const produtoComVariante = {
     ...props.product,
     selectedVariante: variante,
-    quantidadeSelecionada: 1
+    quantidadeSelecionada: quantidade.value
   }
   produtoStore.setProdutoSelecionado(produtoComVariante)
   localStorage.setItem('produtoSelecionado', JSON.stringify(produtoComVariante))
@@ -165,11 +171,9 @@ function onDropdownMouseEnter() {
 }
 
 function aumentarQuantidade() {
-  const max = props.product.variantes?.length
-    ? selectedVariante.value?.estoqueVariante || 0
-    : props.product.estoqueUnico
-
-  if (quantidade.value < max) quantidade.value++
+  if (quantidade.value < estoqueDisponivel.value) {
+    quantidade.value++
+  }
 }
 
 function diminuirQuantidade() {
@@ -177,34 +181,66 @@ function diminuirQuantidade() {
 }
 
 function inicializarQuantidadeUnica(product: any) {
-  if (!product.variantes?.length && product.estoqueUnico && quantidade.value < 1) {
+  if (
+    !product.variantes?.length &&
+    product.estoqueUnico &&
+    quantidade.value < 1 &&
+    estoqueDisponivel.value > 0
+  ) {
     quantidade.value = 1
   }
 }
 
 function adicionarNaSacola() {
+  if (quantidade.value > estoqueDisponivel.value) {
+    alert(`Você só pode adicionar até ${estoqueDisponivel.value} unidades deste produto.`)
+    quantidade.value = estoqueDisponivel.value > 0 ? 1 : 0
+    return
+  }
+
+  const produtoClonado = JSON.parse(JSON.stringify(props.product))
+  const variante = selectedVariante.value
+  const varianteLimpa = variante
+    ? {
+        id: variante.id,
+        tamanho: variante.tamanho,
+        cor: variante.cor,
+        aroma: variante.aroma,
+        funcao: variante.funcao,
+        estoqueVariante: variante.estoqueVariante
+      }
+    : null
+
   const produtoSacola = {
-    ...props.product,
-    selectedVariante: selectedVariante.value,
+    ...produtoClonado,
+    selectedVariante: varianteLimpa,
     quantidadeSelecionada: quantidade.value
   }
+
   sacolaStore.adicionarProduto(produtoSacola)
+  quantidade.value = estoqueDisponivel.value - quantidade.value > 0 ? 1 : 0
 }
 
 function navegarParaDetalhes() {
   produtoStore.setProdutoSelecionado(props.product)
   localStorage.setItem('produtoSelecionado', JSON.stringify(props.product))
-  router.push(`/produto/${props.product.id}`)
+  router.push(`/produto/${props.product.ticketPai}`)
 }
 
-// Rotação de imagem automática
 onMounted(() => {
   const fotos = props.product?.fotos
-  if (!fotos || fotos.length <= 1) return
+  if (fotos?.length > 1) {
+    interval = setInterval(() => {
+      currentImageIndex.value = (currentImageIndex.value + 1) % fotos.length
+    }, 3000)
+  }
 
-  interval = setInterval(() => {
-    currentImageIndex.value = (currentImageIndex.value + 1) % fotos.length
-  }, 3000)
+  if (!props.product.variantes?.length && props.product.estoqueUnico) {
+    const itemNaSacola = sacolaStore.itens.find((item: any) => item.id === props.product.id)
+    const emSacola = itemNaSacola?.quantidadeSelecionada || 0
+    const disponivel = (props.product.estoqueUnico || 0) - emSacola
+    quantidade.value = disponivel > 0 ? 1 : 0
+  }
 })
 
 onBeforeUnmount(() => {
