@@ -3,7 +3,8 @@ import { defineStore } from 'pinia'
 
 export const useSacolaStore = defineStore('sacola', {
   state: () => ({
-    itens: [] as any[]
+    itens: [] as any[],
+    aberto: false
   }),
 
   actions: {
@@ -15,12 +16,12 @@ export const useSacolaStore = defineStore('sacola', {
           a.tamanho === b.tamanho &&
           a.cor === b.cor &&
           a.aroma === b.aroma &&
-          a.funcao === b.funcao
+          a.funcao === b.funcao 
         )
       }
 
       const existente = this.itens.find(item =>
-        item.id === produto.id &&
+        item.ticketPai === produto.ticketPai &&
         mesmaVariante(item.selectedVariante, produto.selectedVariante)
       )
 
@@ -34,6 +35,8 @@ export const useSacolaStore = defineStore('sacola', {
           quantidadeSelecionada: produto.quantidadeSelecionada || 1,
         })
       }
+
+      this.abrirCarrinho()
     },
 
     removerProduto(index: number) {
@@ -41,11 +44,20 @@ export const useSacolaStore = defineStore('sacola', {
     },
 
     limparSacola() {
-      this.itens = [] // reset completo
-      localStorage.removeItem('sacola') // limpar persistência manualmente (se persist estiver ativado)
-    }
-  }
+      this.itens = []
+      localStorage.removeItem('sacola')
+    },
 
-  // ⚠️ Remova o persistente por enquanto:
-  // persist: true
+    abrirCarrinho() {
+      this.aberto = true
+    },
+
+    fecharCarrinho() {
+      this.aberto = false
+    },
+
+    
+  },
+
+  persist: true
 })

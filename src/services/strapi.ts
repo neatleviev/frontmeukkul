@@ -1,101 +1,49 @@
-// services/strapi.ts
-const STRAPI_API_URL = import.meta.env.VITE_STRAPI_API_URL;
-const STRAPI_RAW_URL = import.meta.env.VITE_STRAPI_RAW_URL;
-const ADMIN_TOKEN = import.meta.env.VITE_STRAPI_ADMIN_TOKEN;
+const STRAPI_API_URL = import.meta.env.VITE_STRAPI_API_URL
+const ADMIN_TOKEN = import.meta.env.VITE_STRAPI_ADMIN_TOKEN
 
-export async function criarPedido(pedido: {
-  clienteNome: string;
-  clienteWhatsapp?: string;
-  total: number;
-  andamento?: string;
-  enviado?: boolean;
-  produtos: { id: number }[];
-}) {
+export async function atualizarEstoqueSacola(payload: {
+  ticketPai: number
+  ticket?: number
+  quantidade: number
+}[]) {
   try {
-    const payload = {
-      data: {
-        clienteNome: pedido.clienteNome,
-        clienteWhatsapp: pedido.clienteWhatsapp || '',
-        total: pedido.total,
-        andamento: pedido.andamento || 'pendente',
-        enviado: pedido.enviado || false,
-        produtos: {
-          connect: pedido.produtos,
-        },
-      },
-    };
+    console.log("Payload enviado:", payload)
 
-    const response = await fetch(`${STRAPI_API_URL}/pedidos`, {
-      method: 'POST',
+    const response = await fetch(`${STRAPI_API_URL}/produtos/atualizar-estoque`, {
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${ADMIN_TOKEN}`,
       },
       body: JSON.stringify(payload),
-    });
+    })
+
+    const json = await response.json()
+    console.log("Resposta Strapi:", response.status, json)
 
     if (!response.ok) {
-      throw new Error(`Erro HTTP: ${response.status}`);
+      throw new Error(`Erro ao atualizar estoque: ${response.status}`)
     }
 
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Erro ao criar pedido no Strapi:', error);
-    throw error;
+    return json
+  } catch (err) {
+    console.error('Erro na atualização de estoque:', err)
+    throw err
   }
 }
 
-export async function atualizarEstoqueUnico(produtoId: number, novoEstoque: number) {
-  try {
-    const response = await fetch(`${STRAPI_RAW_URL}/produtos/${produtoId}/estoque-unico`, {
-      method: 'PUT',
+export async function buscarProdutoPorTicketPai(ticketPai: number) {
+  const res = await fetch(
+    `${STRAPI_API_URL}/produtos?filters[ticketPai]=${ticketPai}&populate=variantes`,
+    {
       headers: {
-        'Content-Type': 'application/json',
         Authorization: `Bearer ${ADMIN_TOKEN}`,
       },
-      body: JSON.stringify({
-        estoqueUnico: novoEstoque,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro ao atualizar estoque do produto ${produtoId}: ${response.status}`);
     }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Erro ao atualizar estoqueUnico:', error);
-    throw error;
+  )
+  if (!res.ok) {
+    throw new Error(`Erro ao buscar produto: ${res.status}`)
   }
-}
-
-// ✅ CORRIGIDO: usa id da variante (não mais o índice)
-export async function atualizarEstoqueVariante(produtoId: number, varianteId: number, novoEstoque: number) {
-  try {
-    const response = await fetch(
-      `${STRAPI_RAW_URL}/produtos/${produtoId}/variantes/${varianteId}/estoque-variavel`,
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ADMIN_TOKEN}`,
-        },
-        body: JSON.stringify({
-          estoqueVariante: novoEstoque,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Erro ao atualizar estoque da variante: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Erro ao atualizar estoque da variante:', error);
-    throw error;
-  }
+  const json = await res.json()
+  return json.data[0]
 }

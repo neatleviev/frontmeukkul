@@ -207,15 +207,16 @@ function adicionarNaSacola() {
         cor: variante.cor,
         aroma: variante.aroma,
         funcao: variante.funcao,
-        estoqueVariante: variante.estoqueVariante
+        estoqueVariante: variante.estoqueVariante,
+        ticket: variante.ticket
       }
     : null
-
-  const produtoSacola = {
-    ...produtoClonado,
-    selectedVariante: varianteLimpa,
-    quantidadeSelecionada: quantidade.value
-  }
+    const produtoSacola = {
+      ...produtoClonado,
+      selectedVariante: varianteLimpa,
+      quantidadeSelecionada: quantidade.value
+    }
+    console.log("Produto sendo adicionado à sacola:", produtoSacola)
 
   sacolaStore.adicionarProduto(produtoSacola)
   quantidade.value = estoqueDisponivel.value - quantidade.value > 0 ? 1 : 0
