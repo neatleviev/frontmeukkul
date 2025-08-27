@@ -227,7 +227,7 @@ function openDropdown() {
     <!-- Botão + Título -->
     <div class="flex items-center gap-4 mb-6">
       <BotaoVoltar />
-      <h1 class="text-3xl font-bold text-[#d56aa0]">
+      <h1 class="text-3xl font-bold text-[#d56aa0] ">
         <span v-if="product.nome">{{ product.nome }}</span>
       </h1>
     </div>
@@ -303,8 +303,9 @@ function openDropdown() {
           <div class="flex items-center rounded overflow-hidden w-fit shadow bg-white">
             <!-- Botão - -->
             <button
-              class="px-3 py-1 text-lg bg-pink-500 text-white hover:bg-pink-600 
-                     transition transform active:scale-90 focus:outline-none"
+              class="px-3 py-1 text-lg bg-pink-500 text-stone-50 cursor-pointer 
+                    hover:scale-120 active:scale-90 
+                     transition transform  focus:outline-none"
               @click="quantidadeSelecionada = Math.max(1, (quantidadeSelecionada || 1) - 1)"
               aria-label="Diminuir"
             >
@@ -323,8 +324,9 @@ function openDropdown() {
 
             <!-- Botão + -->
             <button
-              class="px-3 py-1 text-lg bg-pink-500 text-white hover:bg-pink-600 
-                     transition transform active:scale-90 focus:outline-none"
+              class="px-3 py-1 text-lg bg-pink-500 text-stone-50 cursor-pointer 
+                    hover:scale-120 active:scale-90 
+                     transition transform  focus:outline-none"
               @click="quantidadeSelecionada = (quantidadeSelecionada || 0) + 1"
               aria-label="Aumentar"
             >
@@ -336,7 +338,9 @@ function openDropdown() {
         <!-- Botão "pegar" -->
         <button
           @click="pegarProduto"
-          class="w-full bg-[#d56aa0] text-white py-3 rounded-2xl text-lg font-semibold hover:bg-[#b94e88] transition"
+          class="w-full bg-pink-500 text-stone-50 py-3 hover:scale-105 active:scale-105
+          rounded-2xl text-lg font-semibold cursor-pointer  transition duration-100 ease-in-out
+          hover:shadow-[0_0_25px_rgba(213,106,160,0.9)] active:shadow-[0_0_25px_rgba(213,106,160,0.9)]"
           :disabled="estoqueDisponivel <= 0"
         >
           {{ estoqueDisponivel <= 0 ? 'Tudo adicionado' : 'Pegar' }}
@@ -350,7 +354,9 @@ function openDropdown() {
               carregarDescricao();
             }
           "
-          class="w-full bg-pink-500 text-white py-3 rounded-2xl text-lg font-semibold hover:bg-pink-600 transition"
+          class="w-full bg-pink-500 text-stone-50 py-3 rounded-2xl  hover:shadow-[0_0_25px_rgba(213,106,160,0.9)] 
+          text-lg font-semibold cursor-pointer  hover:scale-105 transition duration-100 ease-in-out
+         active:scale-105 active:shadow-[0_0_25px_rgba(213,106,160,0.9)]"
         >
           {{ mostrarDescricao ? 'Ocultar descrição' : 'Ver descrição' }}
         </button>

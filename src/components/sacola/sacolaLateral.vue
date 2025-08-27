@@ -1,14 +1,25 @@
 <template>
   <div
-    class="fixed top-0 right-0 w-full max-w-md h-full bg-white shadow-lg z-50 transition-transform duration-300 ease-in-out"
+    class="fixed top-0 right-0 w-full max-w-md h-full bg-white shadow-lg rounded-lg z-50 
+           transition-transform duration-300 ease-in-out flex flex-col"
     :class="{ 'translate-x-0': isOpen, 'translate-x-full': !isOpen }"
   >
-    <div class="p-4 flex justify-between items-center border-b">
-      <h2 class="text-xl font-bold text-[#d56aa0]">Sacola</h2>
-      <button @click="fecharSacola">X</button>
+    <!-- Cabeçalho que fecha a sacola -->
+    <div 
+      class="p-4 flex justify-center items-center border-b cursor-pointer 
+             bg-stone-950 text-stone-50 
+             hover:shadow-[0_0_25px_rgba(213,106,160,0.9)] 
+             hover:scale-105 
+             active:scale-105
+             active:shadow-[0_0_25px_rgba(213,106,160,0.9)] 
+             transition duration-100 ease-in-out rounded-lg"
+      @click="fecharSacola"
+    >
+      <h2 class="text-xl font-bold">Fechar sacola</h2>
     </div>
 
-    <div class="p-4 space-y-4 overflow-y-auto h-[calc(100%-200px)]">
+    <!-- Lista de itens scrollável -->
+    <div class="p-4 space-y-4 overflow-y-auto flex-1">
       <div
         v-for="(item, index) in sacola.itens"
         :key="index"
@@ -57,11 +68,13 @@
             </p>
           </div>
 
-          <button @click="sacola.removerProduto(index)" class="text-red-500 text-sm">Remover</button>
+          <button @click="sacola.removerProduto(index)" class="text-red-500 text-sm cursor-pointer
+          hover:scale-105 active:scale-120">Remover</button>
         </div>
       </div>
     </div>
 
+    <!-- Subtotal e campo nome -->
     <div class="p-4 border-t space-y-3">
       <input
         v-model="clienteNome"
@@ -69,17 +82,21 @@
         placeholder="Digite seu nome"
         class="w-full border px-3 py-2 rounded text-sm"
       />
+      <p class="font-medium">Subtotal: R$ {{ subtotal.toFixed(2) }}</p>
+    </div>
 
-      <p class="font-medium">
-        Subtotal: R$ {{ subtotal.toFixed(2) }}
-      </p>
-
-      <button
-        class="w-full py-2 bg-black text-white rounded"
-        @click="enviarPedidoParaWhatsApp"
-      >
-        Finalizar Compra
-      </button>
+    <!-- Botão Finalizar Compra fixo -->
+    <div
+       class="p-4 flex justify-center items-center cursor-pointer 
+              bg-stone-950 text-stone-50 
+              hover:shadow-[0_0_25px_rgba(213,106,160,0.9)] 
+              hover:scale-105 
+              active:scale-105
+              active:shadow-[0_0_25px_rgba(213,106,160,0.9)]
+              transition duration-100 ease-in-out rounded-lg"
+      @click="enviarPedidoParaWhatsApp"
+    >
+      Finalizar Compra
     </div>
   </div>
 </template>
@@ -122,6 +139,7 @@ function abrirSacola() {
 function fecharSacola() {
   isOpen.value = false
 }
+
 async function enviarPedidoParaWhatsApp() {
   if (sacola.itens.length === 0) {
     alert('Sua sacola está vazia.');
@@ -129,26 +147,23 @@ async function enviarPedidoParaWhatsApp() {
   }
 
   const payload = sacola.itens.map(item => {
-  if (item.selectedVariante?.ticket) {
-    return {
-      ticketPai: item.ticketPai,
-      ticket: item.selectedVariante.ticket,
-      quantidade: item.selectedVariante.estoqueVariante-item.quantidadeSelecionada,
+    if (item.selectedVariante?.ticket) {
+      return {
+        ticketPai: item.ticketPai,
+        ticket: item.selectedVariante.ticket,
+        quantidade: item.selectedVariante.estoqueVariante-item.quantidadeSelecionada,
+      }
+    } else {
+      return {
+        ticketPai: item.ticketPai,
+        quantidade: item.estoqueUnico-item.quantidadeSelecionada,
+      }
     }
-  } else {
-    return {
-      ticketPai: item.ticketPai,
-      quantidade: item.estoqueUnico-item.quantidadeSelecionada,
-    }
-  }
-})
-
+  })
 
   try {
-    // Atualizar estoque no Strapi
     await atualizarEstoqueSacola(payload);
 
-    // Montar mensagem do WhatsApp
     const textoPedido = sacola.itens
       .map(
         (item) =>
@@ -164,24 +179,17 @@ async function enviarPedidoParaWhatsApp() {
       `Olá, gostaria de fazer um pedido:\n\n${textoPedido}`
     )}`;
 
-    // Limpa a sacola
     sacola.limparSacola();
-
-    // Abre o WhatsApp
     window.open(linkWhatsapp, '_blank');
 
-    // Aguarda um pouco e recarrega a página
     setTimeout(() => {
       window.location.reload();
-    }, 500); // tempo suficiente para abrir o WhatsApp antes do reload
+    }, 500);
   } catch (error) {
     console.error('Erro ao finalizar pedido:', error);
     alert('Ocorreu um erro ao atualizar o estoque. Tente novamente.');
   }
 }
-
-
-
 
 defineExpose({ abrirSacola, fecharSacola })
 </script>
@@ -194,4 +202,3 @@ defineExpose({ abrirSacola, fecharSacola })
   transform: translateX(0%);
 }
 </style>
-
