@@ -19,7 +19,9 @@ function getImageUrl(url: string) {
 
 async function fetchPrateleira(id: string) {
   try {
-    const res = await fetch(`${strapiUrl}/api/prateleiras?filters[id][$eq]=${id}&populate[produtos][populate]=fotos`)
+    const res = await fetch(
+      `${strapiUrl}/api/prateleiras?filters[id][$eq]=${id}&populate[produtos][populate][0]=fotos&populate[produtos][populate][1]=variantes`
+    )
     const json = await res.json()
 
     const prateleira = json.data?.[0]
@@ -69,10 +71,13 @@ watch(
     </div>
 
     <!-- Lista de produtos -->
-    <div v-if="produtos.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div
+      v-if="produtos.length"
+      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+    >
       <cardProduto
         v-for="produto in produtos"
-        :key="produto.id"
+        :key="produto.ticketPai"
         :product="produto"
       />
     </div>
