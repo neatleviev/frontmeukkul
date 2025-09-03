@@ -85,9 +85,10 @@
             aria-label="Modo de entrega"
           >
             <option value="" disabled>Entrega</option>
+            <!-- Mantemos os CODES internos, só ajustamos os rótulos para refletir o Strapi -->
             <option value="retirada">Vou retirar no Meukkul</option>
             <option value="uber">Uber entrega no Meukkul</option>
-            <option value="meukkul">Entrega no Meukkul por (R$ 4,00)</option>
+            <option value="meukkul">Entrega no Meukkul por (RS: 4,00)</option>
           </select>
 
           <!-- Terceiro: Select Pagamento (desabilitado até entrega escolhida) -->
@@ -107,9 +108,9 @@
             <option value="" disabled>Pagamento</option>
             <option value="pix">Pix</option>
             <option value="link">Link de pagamento</option>
-            <option value="dinheiro">Dinheiro vivo</option>
-            <option value="credito">Cartão de crédito</option>
-            <option value="debito">Cartão de débito</option>
+            <option value="dinheiro">Dinheiro Vivo</option>
+            <option value="credito">Cartão de Crédito</option>
+            <!-- REMOVIDO débito do front, conforme Strapi -->
           </select>
         </div>
       </div>
@@ -213,8 +214,8 @@
             <span v-if="opcaoEntrega === 'uber'" class="text-red-600">Não aceito para Uber entrega — escolha Pix ou Link.</span>
           </p>
 
-          <p v-else-if="pagamentoPendente === 'credito' || pagamentoPendente === 'debito'">
-            Pagamento por cartão no ato da entrega.
+          <p v-else-if="pagamentoPendente === 'credito'">
+            Pagamento por cartão de crédito no ato da entrega.
             <span v-if="opcaoEntrega === 'uber'" class="text-red-600">Não disponível para Uber entrega — escolha Pix ou Link.</span>
           </p>
 
@@ -415,7 +416,7 @@
       </div>
     </footer>
 
-    <!-- Botão Finalizar (mantive role="button" e aparência) -->
+    <!-- Botão Finalizar -->
     <div
       v-if="!mostrandoOverlay && podeFinalizar"
       class="p-4 flex justify-center items-center cursor-pointer 
@@ -437,7 +438,7 @@
 <script setup lang="ts">
 import { ref, computed, defineExpose, watch, onMounted, nextTick } from 'vue'
 import { useSacolaStore } from '@/stores/useSacolaStore'
-import { atualizarEstoqueSacola } from '@/services/strapi'
+import { atualizarEstoqueSacola, buscarProdutoPorTicketPai, criarPedidoStrapi, mapEntregaToEnum, mapPagamentoToEnum } from '@/services/strapi'
 
 /* ------------------- STORE E ESTADO BASE ------------------- */
 const sacola = useSacolaStore()
@@ -524,7 +525,7 @@ function validarPrimeiroNome(input: string): { valido: boolean; motivo?: string 
 }
 
 /* ------------------- ESTADO (ENTREGA / POLÍTICA / PAGAMENTO) ------------------- */
-const selecaoEntregaUI = ref<string>('')
+const selecaoEntregaUI = ref<string>('')         // codes: 'retirada'|'uber'|'meukkul'
 const entregaPendente = ref<string | null>(null)
 const opcaoEntrega = ref<string>('')
 
@@ -533,7 +534,7 @@ const alertaConfirmado = ref<boolean>(false)
 const leituraConfirmada = ref<boolean>(false)
 
 /* Pagamento */
-const selecaoPagamentoUI = ref<string>('')
+const selecaoPagamentoUI = ref<string>('')       // codes: 'pix'|'link'|'dinheiro'|'credito'
 const pagamentoPendente = ref<string | null>(null)
 const opcaoPagamento = ref<string>('')
 
@@ -594,13 +595,7 @@ watch(clienteNome, (novo: string) => {
   }
 })
 
-/* Observação importante:
-   Removi o foco programático no select de entrega quando o nome fica válido,
-   conforme solicitado ("retire o focu dos select entrega e pagamento").
-   A ordem de liberação (nome -> entrega -> pagamento) permanece intacta.
-*/
-
-/* Select entrega: manter a UX (blur + flag para watchers) */
+/* Select entrega */
 function onSelectEntregaChange(e: Event) {
   const target = e.target as HTMLSelectElement
   const novo = target.value
@@ -622,7 +617,7 @@ watch(selecaoEntregaUI, (novo: string) => {
   entregaPendente.value = novo
 })
 
-/* Select pagamento: mesma dinâmica que entrega */
+/* Select pagamento */
 function onSelectPagamentoChange(e: Event) {
   const target = e.target as HTMLSelectElement
   const novo = target.value
@@ -666,20 +661,19 @@ watch(politicaChecked, (v: boolean) => {
 function textoEntrega(valor: string | null): string {
   if (valor === 'retirada') return 'Vou retirar no Meukkul'
   if (valor === 'uber') return 'Uber entrega no Meukkul'
-  if (valor === 'meukkul') return 'Entrega no Meukkul (+R$4,00)'
+  if (valor === 'meukkul') return 'Entrega no Meukkul por (RS: 4,00)'
   return ''
 }
 function textoPagamento(v: string | null): string {
   if (v === 'pix') return 'Pix'
   if (v === 'link') return 'Link de pagamento'
-  if (v === 'dinheiro') return 'Dinheiro vivo'
-  if (v === 'credito') return 'Cartão de crédito'
-  if (v === 'debito') return 'Cartão de débito'
+  if (v === 'dinheiro') return 'Dinheiro Vivo'
+  if (v === 'credito') return 'Cartão de Crédito'
   return ''
 }
 function getEstoqueDisponivel(item: any): number {
   if (item.selectedVariante?.estoqueVariante !== undefined) {
-    return item.selectedVarante.estoqueVariante
+    return item.selectedVariante.estoqueVariante // (fix do typo selectedVarante)
   }
   if (item.estoqueUnico !== undefined) {
     return item.estoqueUnico
@@ -702,12 +696,10 @@ function confirmarEntrega() {
   entregaPendente.value = null
 
   // se entrega = uber e já havia forma incompatível, limpar forma de pagamento para forçar reescolha
-  if (opcaoEntrega.value === 'uber' && opcaoPagamento.value && ['dinheiro','credito','debito'].includes(opcaoPagamento.value)) {
+  if (opcaoEntrega.value === 'uber' && opcaoPagamento.value && ['dinheiro','credito'].includes(opcaoPagamento.value)) {
     opcaoPagamento.value = ''
     selecaoPagamentoUI.value = ''
   }
-
-  // removido o foco programático no select de pagamento conforme pedido
 }
 function cancelarEntrega() {
   entregaPendente.value = null
@@ -722,12 +714,12 @@ function cancelarPolitica() {
   leituraConfirmada.value = false
 }
 
-/* Pagamento: confirma com regra de Uber (antecipado obrigatorio) */
+/* Pagamento */
 function confirmarPagamento() {
   if (!pagamentoPendente.value) return
 
-  // Se Uber está selecionado, exigir Pix ou Link
-  if (opcaoEntrega.value === 'uber' && ['dinheiro','credito','debito'].includes(pagamentoPendente.value)) {
+  // Uber exige pagamento antecipado (Pix/Link)
+  if (opcaoEntrega.value === 'uber' && ['dinheiro','credito'].includes(pagamentoPendente.value)) {
     alert('Para Uber entrega, o pagamento deve ser antecipado via WhatsApp — escolha Pix ou Link de pagamento.')
     return
   }
@@ -744,7 +736,8 @@ function cancelarPagamento() {
 async function enviarPedidoParaWhatsApp() {
   if (!podeFinalizar.value) return
 
-  const payload = sacola.itens.map((item: any) => {
+  // 1) Atualização de estoque (mantido)
+  const estoquePayload = sacola.itens.map((item: any) => {
     if (item.selectedVariante?.ticket) {
       return {
         ticketPai: item.ticketPai,
@@ -760,8 +753,52 @@ async function enviarPedidoParaWhatsApp() {
   })
 
   try {
-    await atualizarEstoqueSacola(payload)
+    await atualizarEstoqueSacola(estoquePayload)
+  } catch (err) {
+    console.error('Erro ao atualizar estoque (Strapi):', err)
+    alert('Ocorreu um erro ao atualizar o estoque. Tente novamente.')
+    return
+  }
 
+  // 2) Montar itens_sacola para o Strapi (buscar id do produto pela relação)
+  try {
+    const itensSacola = await Promise.all(
+      sacola.itens.map(async (item: any) => {
+        const produto = await buscarProdutoPorTicketPai(item.ticketPai)
+        const produtoId = produto?.id
+        if (!produtoId) {
+          throw new Error(`Produto com ticketPai ${item.ticketPai} não encontrado no Strapi`)
+        }
+
+        const base: any = {
+          quantidade: Number(item.quantidadeSelecionada),
+          preco: Number((item.preco * item.quantidadeSelecionada).toFixed(2)), // total do item
+          ticketPai: Number(item.ticketPai),
+          produto: Number(produtoId)
+        }
+        if (item.selectedVariante?.ticket) {
+          base.ticket = Number(item.selectedVariante.ticket)
+        }
+        return base
+      })
+    )
+
+    // 3) Mapeamentos de enum (front -> Strapi)
+    const entregaEnum = mapEntregaToEnum(opcaoEntrega.value)
+    const pagamentoEnum = mapPagamentoToEnum(opcaoPagamento.value)
+
+    // 4) Criar pedido no Strapi
+    await criarPedidoStrapi({
+      primeiroNome: clienteNome.value,
+      andamento: 'pendente',
+      comFrete: Number(total.value.toFixed(2)),
+      semFrete: Number(subtotal.value.toFixed(2)),
+      entrega: entregaEnum,
+      pagamento: pagamentoEnum,
+      itens_sacola: itensSacola
+    })
+
+    // 5) Abrir WhatsApp e limpar sacola (mantido)
     const textoPedido = sacola.itens
       .map((item: any) =>
         `• ${item.nome} ${
@@ -785,8 +822,8 @@ async function enviarPedidoParaWhatsApp() {
     window.open(linkWhatsapp, '_blank')
     setTimeout(() => window.location.reload(), 500)
   } catch (err) {
-    console.error('Erro ao finalizar pedido:', err)
-    alert('Ocorreu um erro ao atualizar o estoque. Tente novamente.')
+    console.error('Erro ao criar pedido no Strapi:', err)
+    alert('Ocorreu um erro ao criar o pedido no Strapi. Verifique o console.')
   }
 }
 
@@ -845,13 +882,7 @@ footer .rounded-lg {
   box-shadow: none !important;
 }
 
-/* Se quiser manter acessibilidade, remova o !important e adapte conforme necessidade.
-   O pedido foi "retire o focu dos select entrega e pagamento" — por isso deixei o estilo acima.
-*/
-
 @media (min-width: 640px) {
   .policy-card { max-height: 34rem; }
 }
-
-
 </style>
