@@ -4,7 +4,7 @@ const STRAPI_API_URL = import.meta.env.VITE_STRAPI_API_URL
 const ADMIN_TOKEN = import.meta.env.VITE_STRAPI_ADMIN_TOKEN
 
 /* ============================================================
- * ESTOQUE (SEU CÓDIGO ORIGINAL, INALTERADO)
+ * ESTOQUE
  * ============================================================ */
 export async function atualizarEstoqueSacola(payload: {
   ticketPai: number
@@ -38,7 +38,7 @@ export async function atualizarEstoqueSacola(payload: {
 }
 
 /* ============================================================
- * BUSCAR PRODUTO POR TICKETPAI (SEU CÓDIGO ORIGINAL)
+ * BUSCAR PRODUTO POR TICKETPAI
  * ============================================================ */
 export async function buscarProdutoPorTicketPai(ticketPai: number) {
   const res = await fetch(
@@ -53,35 +53,35 @@ export async function buscarProdutoPorTicketPai(ticketPai: number) {
     throw new Error(`Erro ao buscar produto: ${res.status}`)
   }
   const json = await res.json()
-  return json.data[0] // objeto do produto (contém id, attributes, etc.)
+  return json.data[0] // objeto do produto (contém id/documentId)
 }
 
 /* ============================================================
  * MAPEAMENTO DAS ENUMS (FRONT -> STRAPI)
  * ============================================================ */
-export function mapEntregaToEnum(codeOrText: string): "Vou retirar no Meukkul" | "Uber entrega no Meukkul" | "Entrega no Meukkul por (RS: 4,00)" {
-  // Aceita tanto os "codes" usados no front quanto os textos já no padrão Strapi
+export function mapEntregaToEnum(
+  codeOrText: string
+): "Vou retirar no Meukkul" | "Uber entrega no Meukkul" | "Entrega no Meukkul por (RS: 4,00)" {
   const val = (codeOrText || '').trim()
   if (val === 'retirada' || val === 'Vou retirar no Meukkul') return 'Vou retirar no Meukkul'
   if (val === 'uber' || val === 'Uber entrega no Meukkul') return 'Uber entrega no Meukkul'
-  // IMPORTANTE: manter exatamente como cadastrado no Strapi (RS: 4,00)
   if (val === 'meukkul' || val === 'Entrega no Meukkul por (RS: 4,00)') return 'Entrega no Meukkul por (RS: 4,00)'
-  // fallback: manter a terceira opção (evita 400 se vier algo inesperado)
   return 'Entrega no Meukkul por (RS: 4,00)'
 }
 
-export function mapPagamentoToEnum(codeOrText: string): "Pix" | "Link de pagamento" | "Dinheiro Vivo" | "Cartão de Crédito" {
+export function mapPagamentoToEnum(
+  codeOrText: string
+): "Pix" | "Link de pagamento" | "Dinheiro Vivo" | "Cartão de Crédito" {
   const val = (codeOrText || '').trim()
   if (val === 'pix' || val === 'Pix') return 'Pix'
   if (val === 'link' || val === 'Link de pagamento') return 'Link de pagamento'
   if (val === 'dinheiro' || val === 'Dinheiro Vivo') return 'Dinheiro Vivo'
   if (val === 'credito' || val === 'Cartão de Crédito') return 'Cartão de Crédito'
-  // fallback: Pix
   return 'Pix'
 }
 
 /* ============================================================
- * GERAÇÃO DE CÓDIGO ÚNICO (CASO O UID NÃO SEJA AUTO-GERADO NO STRAPI)
+ * GERAÇÃO DE CÓDIGO ÚNICO
  * ============================================================ */
 function gerarCodigoUnico(): string {
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
@@ -97,7 +97,7 @@ type ItemPedidoPayload = {
   preco: number
   ticketPai: number
   ticket?: number
-  produto: number // id do produto no Strapi
+  produto: string // documentId do produto no Strapi v5
 }
 
 type PedidoPayload = {
@@ -112,16 +112,30 @@ type PedidoPayload = {
 }
 
 export async function criarPedidoStrapi(pedido: PedidoPayload) {
-  const data = {
-    // se o UID não estiver auto-gerando, vamos enviar um código único
+  // Ajustar relação produto -> Strapi v5
+  const itensFormatados = pedido.itens_sacola.map((item) => ({
+    quantidade: item.quantidade,
+    preco: item.preco,
+    ticketPai: item.ticketPai,
+    ticket: item.ticket ?? null,
+    produto: { connect: [item.produto] }, // relação no Strapi v5
+  }))
+
+  // Payload principal
+  const data: any = {
     codigo_unico: pedido.codigo_unico || gerarCodigoUnico(),
     primeiroNome: pedido.primeiroNome,
     andamento: pedido.andamento || 'pendente',
-    comFrete: pedido.comFrete,
-    semFrete: pedido.semFrete,
     entrega: pedido.entrega,
     pagamento: pedido.pagamento,
-    itens_sacola: pedido.itens_sacola
+    itens_sacola: itensFormatados,
+  }
+
+  // envia só um dos dois valores (comFrete ou semFrete)
+  if (pedido.comFrete !== undefined) {
+    data.comFrete = pedido.comFrete
+  } else if (pedido.semFrete !== undefined) {
+    data.semFrete = pedido.semFrete
   }
 
   const url = `${STRAPI_API_URL}/pedidos`
@@ -131,15 +145,13 @@ export async function criarPedidoStrapi(pedido: PedidoPayload) {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${ADMIN_TOKEN}`,
     },
-    body: JSON.stringify({ data })
+    body: JSON.stringify({ data }),
   })
 
   let json: any = null
   try {
     json = await res.json()
-  } catch (_e) {
-    // ignora parse caso não haja body
-  }
+  } catch (_e) {}
 
   if (!res.ok) {
     console.error('[strapi] criarPedido erro', res.status, json)

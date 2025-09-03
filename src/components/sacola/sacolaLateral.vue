@@ -788,15 +788,23 @@ async function enviarPedidoParaWhatsApp() {
     const pagamentoEnum = mapPagamentoToEnum(opcaoPagamento.value)
 
     // 4) Criar pedido no Strapi
-    await criarPedidoStrapi({
-      primeiroNome: clienteNome.value,
-      andamento: 'pendente',
-      comFrete: Number(total.value.toFixed(2)),
-      semFrete: Number(subtotal.value.toFixed(2)),
-      entrega: entregaEnum,
-      pagamento: pagamentoEnum,
-      itens_sacola: itensSacola
-    })
+    const payload: any = {
+  primeiroNome: clienteNome.value,
+  andamento: 'pendente',
+  entrega: entregaEnum,
+  pagamento: pagamentoEnum,
+  itens_sacola: itensSacola,
+}
+
+// Enviar apenas um dos dois
+if (frete.value > 0) {
+  payload.comFrete = Number(total.value.toFixed(2))
+} else {
+  payload.semFrete = Number(subtotal.value.toFixed(2))
+}
+
+await criarPedidoStrapi(payload)
+
 
     // 5) Abrir WhatsApp e limpar sacola (mantido)
     const textoPedido = sacola.itens
