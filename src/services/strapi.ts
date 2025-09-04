@@ -38,11 +38,11 @@ export async function atualizarEstoqueSacola(payload: {
 }
 
 /* ============================================================
- * BUSCAR PRODUTO POR TICKETPAI
+ * BUSCAR PRODUTO POR TICKETPAI (usando documentId no v5)
  * ============================================================ */
 export async function buscarProdutoPorTicketPai(ticketPai: number) {
   const res = await fetch(
-    `${STRAPI_API_URL}/produtos?filters[ticketPai]=${ticketPai}&populate=variantes`,
+    `${STRAPI_API_URL}/produtos?filters[ticketPai][$eq]=${ticketPai}&fields[0]=documentId&populate=variantes`,
     {
       headers: {
         Authorization: `Bearer ${ADMIN_TOKEN}`,
@@ -53,7 +53,7 @@ export async function buscarProdutoPorTicketPai(ticketPai: number) {
     throw new Error(`Erro ao buscar produto: ${res.status}`)
   }
   const json = await res.json()
-  return json.data[0] // objeto do produto (contém id/documentId)
+  return json.data[0] // retorna objeto que contém documentId
 }
 
 /* ============================================================
@@ -97,7 +97,6 @@ type ItemPedidoPayload = {
   preco: number
   ticketPai: number
   ticket?: number
-  produto: string // documentId do produto no Strapi v5
 }
 
 type PedidoPayload = {
@@ -118,7 +117,6 @@ export async function criarPedidoStrapi(pedido: PedidoPayload) {
     preco: item.preco,
     ticketPai: item.ticketPai,
     ticket: item.ticket ?? null,
-    produto: { connect: [item.produto] }, // relação no Strapi v5
   }))
 
   // Payload principal

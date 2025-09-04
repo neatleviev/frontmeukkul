@@ -18,8 +18,6 @@ body {
   background-color: withe;
 }
 
-main {
-  padding: 20px;
-}
+ 
 
 </style>

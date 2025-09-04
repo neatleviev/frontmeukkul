@@ -1,7 +1,8 @@
 <template>
   <button
     @click="voltar"
-    class="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded transition duration-200"
+    class="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 
+    text-white rounded transition duration-200 cursor-pointer"
   >
     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
       viewBox="0 0 24 24" stroke="currentColor">

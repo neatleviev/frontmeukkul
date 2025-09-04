@@ -773,8 +773,7 @@ async function enviarPedidoParaWhatsApp() {
         const base: any = {
           quantidade: Number(item.quantidadeSelecionada),
           preco: Number((item.preco * item.quantidadeSelecionada).toFixed(2)), // total do item
-          ticketPai: Number(item.ticketPai),
-          produto: Number(produtoId)
+          ticketPai: Number(item.ticketPai)
         }
         if (item.selectedVariante?.ticket) {
           base.ticket = Number(item.selectedVariante.ticket)

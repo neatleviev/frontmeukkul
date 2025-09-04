@@ -110,7 +110,8 @@
 
             <!-- Botão + -->
             <button
-              class="px-3 py-1 text-lg bg-pink-500 text-stone-50 
+              class="px-3 py-1 text-lg bg-pink-500 text-stone-50 cursor-pointer 
+                    hover:scale-120 active:scale-90 
                      transition transform  focus:outline-none"
               @click="aumentarQtd"
               :disabled="quantidadeSelecionada >= estoqueDisponivel || estoqueDisponivel <= 0"

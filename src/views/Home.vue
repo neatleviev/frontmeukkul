@@ -1,9 +1,9 @@
   <template>
-    <section class="p-4 space-y-8">
+    <section class="p-3 space-y-6">
       <div
         v-for="vitrine in superVitrines"
         :key="vitrine.id"
-        class="space-y-4"
+        
       >
         <h2 class="text-2xl font-bold text-[#d56aa0]">
           {{ vitrine.nome }}
