@@ -14,6 +14,9 @@
       class="relative w-full h-70 overflow-hidden mb-3 bg-white rounded-xl"
       v-if="product.fotos?.length"
     >
+      <!-- Ícone de fogo (colocado no canto superior direito da imagem) -->
+      <span class="image-flame select-none" aria-hidden="true">🔥</span>
+
       <!-- Preço em destaque (premium) -->
       <div class="absolute top-3 left-3 select-none price-badge-wrapper">
         <div class="price-badge flex flex-col items-end px-3 py-1 rounded-xl">
@@ -39,10 +42,8 @@
     <!-- Nome com efeito -->
     <h2
       ref="titleEl"
-      class="product-title text-lg font-semibold mb-1 leading-tight flex items-center gap-2 select-none
-      group-hover:animate-bounce-smooth"
+      class="product-title text-lg font-semibold mb-1 leading-tight flex items-center gap-2 select-none"
     >
-      <span class="flame" aria-hidden="true">🔥</span>
       <span class="name bg-clip-text text-transparent bg-gradient-to-r from-[#d56aa0] to-rose-400">
         {{ product.nome || 'Sem nome' }}
       </span>
@@ -294,7 +295,8 @@ onBeforeUnmount(() => {
 }
 .price-badge {
   background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.75));
-  border: 1px solid rgba(0,0,0,0.06);
+  /* borda removida conforme solicitado */
+  /* border: 1px solid rgba(0,0,0,0.06); */
   backdrop-filter: blur(6px);
   box-shadow: 0 8px 22px rgba(10,10,10,0.05);
   min-width: 96px;
@@ -313,26 +315,75 @@ onBeforeUnmount(() => {
   text-shadow: 0 0 12px rgba(213,106,160,0.25);
 }
 
-/* 🔥 Fogo mais sutil: inclinar para os lados */
-.product-title .flame {
+/* Ícone de fogo sobre a imagem (canto superior direito) */
+.image-flame {
+  position: absolute;
+  top: 0.75rem; /* top-3 */
+  right: 0.75rem; /* right-3 */
+  z-index: 42;
+  pointer-events: none;
   display: inline-flex;
-  font-size: 1em;
-  animation: flameDanceSoft 1.8s infinite ease-in-out;
   transform-origin: 50% 60%;
-  filter: drop-shadow(0 3px 6px rgba(213,106,160,0.05));
+  font-size: 1.05rem;
+  filter: drop-shadow(0 4px 10px rgba(213,106,160,0.08));
+  animation: imageFlameFloat 2.6s ease-in-out infinite;
+  /* um leve padding para não colar na borda da imagem */
+  padding: 2px;
+  background: transparent;
+  border-radius: 6px;
 }
 
-/* Nome do produto: sem growPulse (removido) */
+/* movimento do ícone mais sutil */
+@keyframes imageFlameFloat {
+  0%   { transform: rotate(-3deg) translateY(0); opacity: 1; }
+  50%  { transform: rotate(3deg) translateY(-1px); opacity: 0.98; }
+  100% { transform: rotate(-3deg) translateY(0); opacity: 1; }
+}
+
+/* Efeito 'flamejante' para o nome do produto: brilho rosa por trás das letras (subtil) */
 .product-title .name {
-  will-change: transform;
-  animation: none; /* removido o efeito de "aumentar/diminuir" apenas no nome */
+  will-change: text-shadow, filter, opacity;
+  animation: flameGlow 2.6s ease-in-out infinite;
+  /* manter o gradient do texto (já aplicado) */
 }
 
-/* Bounce ao entrar */
+/* animação apenas de brilho / glow por trás das letras — sem movimento de salto */
+@keyframes flameGlow {
+  0% {
+    text-shadow:
+      0 0 0 rgba(213,106,160,0.04),
+      0 0 0 rgba(244,114,182,0.03),
+      0 0 0 rgba(255,200,150,0);
+    filter: none;
+  }
+  30% {
+    text-shadow:
+      0 2px 6px rgba(213,106,160,0.06),
+      0 6px 14px rgba(244,114,182,0.05),
+      0 12px 28px rgba(244,114,182,0.02);
+    filter: saturate(1.02) blur(0.12px);
+  }
+  60% {
+    text-shadow:
+      0 3px 8px rgba(213,106,160,0.08),
+      0 9px 20px rgba(244,114,182,0.07),
+      0 20px 40px rgba(244,114,182,0.03);
+    filter: saturate(1.05) blur(0.18px);
+  }
+  100% {
+    text-shadow:
+      0 0 0 rgba(213,106,160,0.04),
+      0 0 0 rgba(244,114,182,0.03),
+      0 0 0 rgba(255,200,150,0);
+    filter: none;
+  }
+}
+
+/* Bounce ao entrar (mantido apenas para entrada) */
 .bounce-in {
   animation: bounceIn 0.7s cubic-bezier(.2, .8, .4, 1) both;
 }
-/* Bounce ao hover */
+/* Bounce ao hover (mantido para outros elementos, não para o nome) */
 .group-hover\:animate-bounce-smooth {
   animation: bounceSmooth 0.6s ease-in-out;
 }
@@ -366,12 +417,6 @@ onBeforeUnmount(() => {
 }
 
 /* Keyframes */
-@keyframes flameDanceSoft {
-  0% { transform: rotate(-8deg) translateY(0) scale(1); filter: drop-shadow(0 3px 6px rgba(213,106,160,0.05)); }
-  50% { transform: rotate(8deg) translateY(-2px) scale(1.02); filter: drop-shadow(0 4px 10px rgba(213,106,160,0.1)); }
-  100% { transform: rotate(-8deg) translateY(0) scale(1); filter: drop-shadow(0 3px 6px rgba(213,106,160,0.05)); }
-}
-
 @keyframes flameTextPulse {
   0% { transform: translateY(0) scale(1); opacity: 1; text-shadow: 0 0 6px rgba(213,106,160,0.18); }
   50% { transform: translateY(-2px) scale(1.02); opacity: 0.98; text-shadow: 0 0 14px rgba(213,106,160,0.32); }

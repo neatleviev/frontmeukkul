@@ -24,7 +24,7 @@
  <!-- preço à direita (stack para mostrar label + valor) -->
   <div class="flex flex-col items-center whitespace-nowrap">
     <span 
-      :class="[
+      :class="[ 
         'text-sm font-medium text-green-600 animate-blink-strong'
       ]"
     >
@@ -416,9 +416,27 @@
       </div>
     </footer>
 
-    <!-- Botão Finalizar -->
+    <!-- NOVA DIV: Meu Brinde (mostra antes de liberar Finalizar) -->
     <div
-      v-if="!mostrandoOverlay && podeFinalizar"
+      v-if="!mostrandoOverlay && podeFinalizar && !brindeLiberado"
+      class="p-4 flex justify-center items-center cursor-pointer 
+             bg-stone-950 text-stone-50 
+             hover:shadow-[0_0_25px_rgba(213,106,160,0.9)] 
+             hover:scale-105 
+             active:scale-105
+             active:shadow-[0_0_25px_rgba(213,106,160,0.9)]
+             transition duration-100 ease-in-out rounded-lg"
+      @pointerdown.prevent="onMeuBrindePointerDown"
+      @click.stop="onMeuBrindeClick"
+      role="button"
+      aria-label="Meu Brinde"
+    >
+      meu brinde 🥰
+    </div>
+
+    <!-- Botão Finalizar (agora só aparece após brindeLiberado) -->
+    <div
+      v-if="!mostrandoOverlay && podeFinalizar && brindeLiberado"
       class="p-4 flex justify-center items-center cursor-pointer 
              bg-stone-950 text-stone-50 
              hover:shadow-[0_0_25px_rgba(213,106,160,0.9)] 
@@ -437,6 +455,7 @@
 
 <script setup lang="ts">
 import { ref, computed, defineExpose, watch, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useSacolaStore } from '@/stores/useSacolaStore'
 import { atualizarEstoqueSacola, buscarProdutoPorTicketPai, criarPedidoStrapi, mapEntregaToEnum, mapPagamentoToEnum } from '@/services/strapi'
 
@@ -445,9 +464,12 @@ const sacola = useSacolaStore()
 const isOpen = ref<boolean>(false)
 const clienteNome = ref<string>('')
 
+/* router para redirecionar para a view de brindes */
+const router = useRouter()
+
 /* DOM refs para foco */
 const nomeInputRef = ref<HTMLInputElement | null>(null)
-const entregaSelectRef = ref<HTMLSelectElement | null>(null)
+const entregaSelectRef = ref<HTMLInputElement | null>(null)
 const pagamentoSelectRef = ref<HTMLSelectElement | null>(null)
 
 /* ------------------- NOMES BASE ------------------- */
@@ -542,6 +564,9 @@ const opcaoPagamento = ref<string>('')
 const ignoreSelecaoWatcher = ref<boolean>(false)
 const ignorePagamentoWatcher = ref<boolean>(false)
 
+/* ------------------- NOVO FLAG: controle de liberação do botão finalizar após "meu brinde" ------------------- */
+const brindeLiberado = ref<boolean>(false)
+
 /* ------------------- COMPUTEDS ------------------- */
 const subtotal = computed<number>(() =>
   sacola.itens.reduce((acc: number, item: any) => acc + item.preco * item.quantidadeSelecionada, 0)
@@ -563,6 +588,8 @@ const exibindoEntrega = computed<boolean>(() => entregaPendente.value !== null)
 const exibindoPagamento = computed<boolean>(() => pagamentoPendente.value !== null)
 const mostrandoOverlay = computed<boolean>(() => exibindoEntrega.value || exibindoAlerta.value || exibindoPolitica.value || exibindoPagamento.value)
 
+/* agora o botão 'Finalizar' depende também de brindeLiberado no template (via v-if),
+   então mantenho a lógica de validação original em 'podeFinalizar' */
 const podeFinalizar = computed<boolean>(() =>
   subtotal.value >= 15 && !!opcaoEntrega.value && nomeValido.value && leituraConfirmada.value && !!opcaoPagamento.value
 )
@@ -639,11 +666,13 @@ watch(selecaoPagamentoUI, (novo: string) => {
   pagamentoPendente.value = novo
 })
 
+/* quando os pré-requisitos políticos desaparecerem, resetamos flags incluindo brindeLiberado */
 watch(preRequisitosPolitica, (v: boolean) => {
   if (!v) {
     politicaChecked.value = false
     alertaConfirmado.value = false
     leituraConfirmada.value = false
+    brindeLiberado.value = false
   }
 })
 
@@ -654,6 +683,13 @@ watch(politicaChecked, (v: boolean) => {
   } else {
     alertaConfirmado.value = false
     leituraConfirmada.value = false
+  }
+})
+
+/* opcional: se a sacola ficar vazia, também garantimos resetar brindeLiberado */
+watch(() => sacola.itens.length, (len: number) => {
+  if (len === 0) {
+    brindeLiberado.value = false
   }
 })
 
@@ -732,6 +768,22 @@ function cancelarPagamento() {
   pagamentoPendente.value = null
 }
 
+/* ------------------- NOVAS FUNÇÕES: Meu Brinde ------------------- */
+function onMeuBrindePointerDown(e: PointerEvent) {
+  // previne foco estranho / duplo clique; comportamento intencionalmente simples
+  e.preventDefault()
+}
+
+function onMeuBrindeClick() {
+  // fecha a sacola e direciona para a prateleira de brindes apropriada
+  // e marca brindeLiberado para que o botão Finalizar seja mostrado (quando aplicável)
+  const prateleiraId = total.value >= 60 ? 28 : 5
+  brindeLiberado.value = true
+  fecharSacola()
+  // redirecionamento para a página de brindes (trocamos daqui do "Finalizar" para cá)
+  router.push({ name: 'brindes', params: { id: String(prateleiraId) } })
+}
+
 /* ------------------- FINALIZAR PEDIDO ------------------- */
 async function enviarPedidoParaWhatsApp() {
   if (!podeFinalizar.value) return
@@ -795,40 +847,26 @@ async function enviarPedidoParaWhatsApp() {
   itens_sacola: itensSacola,
 }
 
-// Enviar apenas um dos dois
-if (frete.value > 0) {
-  payload.comFrete = Number(total.value.toFixed(2))
-} else {
-  payload.semFrete = Number(subtotal.value.toFixed(2))
-}
+    // Enviar apenas um dos dois
+    if (frete.value > 0) {
+      payload.comFrete = Number(total.value.toFixed(2))
+    } else {
+      payload.semFrete = Number(subtotal.value.toFixed(2))
+    }
 
-await criarPedidoStrapi(payload)
+    await criarPedidoStrapi(payload)
 
-
-    // 5) Abrir WhatsApp e limpar sacola (mantido)
-    const textoPedido = sacola.itens
-      .map((item: any) =>
-        `• ${item.nome} ${
-          item.selectedVariante
-            ? `(${item.selectedVariante.tamanho || ''} ${item.selectedVariante.cor || ''} ${item.selectedVariante.aroma || ''} ${item.selectedVariante.funcao || ''})`
-            : ''
-        } - Quantidade: ${item.quantidadeSelecionada}`.replace(/\s+/g, ' ').trim()
-      )
-      .join('\n')
-
-    const entregaTexto = textoEntrega(opcaoEntrega.value || null)
-    const pagamentoTexto = textoPagamento(opcaoPagamento.value || null)
-
-    const linkWhatsapp = `https://wa.me/SEU_NUMERO?text=${encodeURIComponent(
-      `Olá, meu nome é ${clienteNome.value}.\nGostaria de fazer um pedido:\n\n${textoPedido}\n\nSubtotal: R$ ${subtotal.value.toFixed(
-        2
-      )}\nEntrega: ${entregaTexto}\nPagamento: ${pagamentoTexto}\nTotal: R$ ${total.value.toFixed(2)}`
-    )}`
-
+    // 5) Limpar sacola após pedido criado com sucesso.
     sacola.limparSacola()
-    window.open(linkWhatsapp, '_blank')
-    setTimeout(() => window.location.reload(), 500)
+
+    // IMPORTANT: removido o redirecionamento para 'brindes' daqui.
+    // O redirecionamento para brindes agora acontece apenas no botão "meu brinde 🥰".
+    // Mantemos o fluxo: pedido criado -> sacola limpa. Se quiser redirecionar
+    // depois de criar o pedido, use o botão "Meu Brinde" separadamente.
+
   } catch (err) {
+    // Se qualquer erro ocorrer (busca produto, criação do pedido, etc.), 
+    // NÃO limpamos a sacola — assim o usuário pode tentar novamente.
     console.error('Erro ao criar pedido no Strapi:', err)
     alert('Ocorreu um erro ao criar o pedido no Strapi. Verifique o console.')
   }

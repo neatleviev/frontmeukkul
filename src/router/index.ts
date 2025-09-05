@@ -18,7 +18,12 @@ const routes = [
     component: () => import('@/views/detalhesProduto.vue'),
     props: true
   },
-]
+ {
+  path: '/meubrinde/:id',
+  name: 'brindes',
+  component: () => import('@/views/brindes.vue'),
+  props: true
+}]
 
 const router = createRouter({
   history: createWebHistory(),
