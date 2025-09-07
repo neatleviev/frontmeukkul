@@ -373,7 +373,7 @@
                   <button
                     type="button"
                     class="px-2"
-                    :disabled="item.quantidadeSelecionada >= getEstoqueDisponivel(item)"
+                    :disabled="item.preco === 0 || item.quantidadeSelecionada >= getEstoqueDisponivel(item)"
                     @click="item.quantidadeSelecionada++"
                   >+</button>
                 </div>
@@ -391,7 +391,7 @@
               </p>
             </div>
 
-            <button type="button" @click="sacola.removerProduto(index)" class="text-red-500 text-sm cursor-pointer
+            <button type="button" @click="removerProdutoCustom(index, item)" class="text-red-500 text-sm cursor-pointer
             hover:scale-105 active:scale-120">Remover</button>
           </div>
         </div>
@@ -431,7 +431,7 @@
       role="button"
       aria-label="Meu Brinde"
     >
-      meu brinde 🥰
+      Escolhe meu brinde 🥰
     </div>
 
     <!-- Botão Finalizar (agora só aparece após brindeLiberado) -->
@@ -448,7 +448,7 @@
       role="button"
       aria-label="Finalizar Compra"
     >
-      Finalizar Compra
+      Finalizar Minha Compra
     </div>
   </div>
 </template>
@@ -567,6 +567,9 @@ const ignorePagamentoWatcher = ref<boolean>(false)
 /* ------------------- NOVO FLAG: controle de liberação do botão finalizar após "meu brinde" ------------------- */
 const brindeLiberado = ref<boolean>(false)
 
+/* ------------------- AVISO EXTRA ------------------- */
+const avisoExtra = ref<string>('') // usado para mensagens temporárias (ex: quando precisa escolher brinde novamente)
+
 /* ------------------- COMPUTEDS ------------------- */
 const subtotal = computed<number>(() =>
   sacola.itens.reduce((acc: number, item: any) => acc + item.preco * item.quantidadeSelecionada, 0)
@@ -594,12 +597,15 @@ const podeFinalizar = computed<boolean>(() =>
   subtotal.value >= 15 && !!opcaoEntrega.value && nomeValido.value && leituraConfirmada.value && !!opcaoPagamento.value
 )
 
-/* mensagem aviso (prioridades) */
+/* mensagem aviso (prioridades) 
+   OBS: reordenei para priorizar o aviso de nome não preenchido antes de entrega/pagamento,
+   e adicionei avisoExtra no topo (mensagens temporárias como "escolha o brinde novamente"). */
 const mensagemAviso = computed<string>(() => {
+  if (avisoExtra.value) return avisoExtra.value
   if (subtotal.value < 15) return 'O valor mínimo para compra é de R$15,00'
+  if (!nomeValido.value) return nomeValidacao.value.motivo || 'Informe um nome válido'
   if (!opcaoEntrega.value) return 'Por favor, selecione um modo de entrega'
   if (!opcaoPagamento.value) return 'Por favor, selecione uma forma de pagamento'
-  if (!nomeValido.value) return nomeValidacao.value.motivo || 'Informe um nome válido'
   if (!leituraConfirmada.value) return 'Por favor, confirme que leu a política de troca e devolução'
   return ''
 })
@@ -775,6 +781,9 @@ function onMeuBrindePointerDown(e: PointerEvent) {
 }
 
 function onMeuBrindeClick() {
+  // Antes de redirecionar, verifica e remove qualquer brinde existente na sacola
+  removerProdutosPrecoZero()
+
   // fecha a sacola e direciona para a prateleira de brindes apropriada
   // e marca brindeLiberado para que o botão Finalizar seja mostrado (quando aplicável)
   const prateleiraId = total.value >= 60 ? 28 : 5
@@ -869,6 +878,137 @@ async function enviarPedidoParaWhatsApp() {
     // NÃO limpamos a sacola — assim o usuário pode tentar novamente.
     console.error('Erro ao criar pedido no Strapi:', err)
     alert('Ocorreu um erro ao criar o pedido no Strapi. Verifique o console.')
+  }
+}
+
+/* ------------------- Regras ESPECÍFICAS DE BRINDE / PREÇO ZERO ------------------- */
+
+/**
+ * Regras implementadas:
+ * 1) Permitir apenas 1 produto com preco === 0 (se houver mais, removemos os extras).
+ * 2) Se existir produto com preco === 0, garantir quantidadeSelecionada === 1.
+ * 3) Usar apenas `total` para detectar travessia do limiar (>= 60) — se atravessar, removemos brindes de custo zero e liberamos a div "Escolhe meu brinde".
+ * 4) Se, após o clique em "Escolhe meu brinde", o `total` aumentar (usuário adicionou produto com valor > 0 ou qualquer aumento no total),
+ *    então disponibilizamos a div "Escolhe meu brinde" novamente (brindeLiberado = false) e exibimos um aviso temporário ao usuário.
+ */
+
+/* track previous valores para detectar transição de limiar (USANDO APENAS total conforme solicitado) */
+const prevTotal = ref<number>(total.value)
+const LIMIAR_BRINDE = 60.0
+
+function removerProdutosPrecoZero() {
+  // removemos todos os itens com item.preco === 0
+  const indices: number[] = []
+  sacola.itens.forEach((item: any, idx: number) => {
+    if (Number(item.preco) === 0) indices.push(idx)
+  })
+  // remover do fim para início para preservar índices
+  indices.sort((a, b) => b - a).forEach(i => {
+    try {
+      sacola.removerProduto(i)
+    } catch (err) {
+      // fallback: filtrar sacola diretamente no store se necessário (depende da implementação da store)
+      console.warn('Erro ao remover brinde pelo índice', i, err)
+    }
+  })
+}
+
+function garantirUnicoBrindeEQuantidade() {
+  // encontra todos os indices de itens com preco 0
+  const zeroIndices: number[] = []
+  sacola.itens.forEach((item: any, idx: number) => {
+    if (Number(item.preco) === 0) zeroIndices.push(idx)
+  })
+  if (zeroIndices.length === 0) return
+
+  // garantir somente um: manter o primeiro, remover o resto
+  if (zeroIndices.length > 1) {
+    const toRemove = zeroIndices.slice(1).sort((a,b)=>b-a)
+    toRemove.forEach(i => {
+      try { sacola.removerProduto(i) } catch (err) { console.warn('Erro ao remover brinde extra', err) }
+    })
+  }
+
+  // garantir quantidade = 1 no brinde restante
+  const firstIdx = zeroIndices[0]
+  const item = sacola.itens[firstIdx]
+  if (item) {
+    if (item.quantidadeSelecionada > 1) {
+      // ajusta para 1
+      item.quantidadeSelecionada = 1
+    }
+    // opcional: prevenir incrementos subsequentes já feito no template (botão + desabilitado para preco 0)
+  }
+}
+
+/* detecta transição de <60 para >=60 e vice-versa usando apenas total */
+function checarTransicaoLimiar(prev: number, atual: number) {
+  const antesMenor = prev < LIMIAR_BRINDE
+  const agoraMaiorOuIgual = atual >= LIMIAR_BRINDE
+  const antesMaiorOuIgual = prev >= LIMIAR_BRINDE
+  const agoraMenor = atual < LIMIAR_BRINDE
+
+  // se atravessou o limiar em qualquer direção, removemos brinde(s) de custo zero
+  if ((antesMenor && agoraMaiorOuIgual) || (antesMaiorOuIgual && agoraMenor)) {
+    // somente agir se houver brinde(s) de preco 0 na sacola
+    const temBrinde = sacola.itens.some((it: any) => Number(it.preco) === 0)
+    if (temBrinde) {
+      removerProdutosPrecoZero()
+      // disponibilizar a div de direcionamento para brinde: brindeLiberado = false
+      brindeLiberado.value = false
+    }
+  }
+}
+
+/* watchers adicionais para garantir regra do único brinde e transição do limiar (apenas total) */
+watch(() => sacola.itens.map(i => ({ preco: Number(i.preco), quantidade: i.quantidadeSelecionada })), () => {
+  // garantir apenas 1 produto gratis e quantidade = 1
+  garantirUnicoBrindeEQuantidade()
+}, { deep: true })
+
+watch(total, (novo) => {
+  // 1) checar transição do limiar usando prevTotal
+  checarTransicaoLimiar(prevTotal.value, novo)
+
+  // 2) se o usuário já havia clicado em "Meu Brinde" (brindeLiberado == true)
+  //    e o total aumentou (novo > prevTotal), então assumimos que ele adicionou
+  //    um produto com valor (>0) ou houve aumento no total e precisamos
+  //    disponibilizar novamente a div "Escolhe meu brinde".
+  //    (conforme solicitado: usar somente total para detectar o evento)
+  if (brindeLiberado.value && novo > prevTotal.value) {
+    brindeLiberado.value = false
+    avisoExtra.value = 'Você adicionou um item que alterou o valor total. Clique em "Escolhe meu brinde 🥰" novamente para selecionar seu brinde.'
+    // limpar avisoExtra após alguns segundos
+    setTimeout(() => {
+      // apenas limpar se for o mesmo aviso (evita remoção concorrente)
+      if (avisoExtra.value?.startsWith('Você adicionou um item')) avisoExtra.value = ''
+    }, 6000)
+  }
+
+  // atualizar prevTotal ao final
+  prevTotal.value = novo
+})
+
+/* ------------------- Função custom: removerProdutoCustom ------------------- */
+/* substitui as chamadas diretas a sacola.removerProduto(index) para garantir
+   que, se o cliente remover um brinde (preço === 0), a div "Escolhe meu brinde"
+   volte a ficar disponível (brindeLiberado = false). */
+function removerProdutoCustom(index: number, item: any) {
+  try {
+    sacola.removerProduto(index)
+  } catch (err) {
+    console.warn('Erro ao remover produto via removerProdutoCustom:', err)
+    // fallback silencioso; a store pode ter outra API — manter comportamento não-bloqueante
+  }
+
+  // se o item removido era um brinde (preço === 0), liberar a opção de escolher brinde novamente
+  try {
+    if (Number(item?.preco) === 0) {
+      brindeLiberado.value = false
+    }
+  } catch (e) {
+    // segurança: não deixar erros interromper o fluxo
+    console.warn('Erro ao verificar preço do item removido', e)
   }
 }
 
