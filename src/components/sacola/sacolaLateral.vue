@@ -61,57 +61,69 @@
             v-model="clienteNome"
             type="text"
             placeholder="Primeiro nome"
+            :disabled="subtotal < 15"
             :class="[
               'border px-3 py-2 rounded text-sm transition-colors duration-200',
               'w-1/3',
-              { 'animate-blink-border': devePiscarNome }
+              { 'opacity-60 cursor-not-allowed': subtotal < 15, 'animate-blink-border': devePiscarNome }
             ]"
             aria-label="Primeiro nome"
             autocomplete="given-name"
           />
 
           <!-- Segundo: Select Entrega (desabilitado até nome válido) -->
-          <select
-            ref="entregaSelectRef"
-            v-model="selecaoEntregaUI"
-            @change="onSelectEntregaChange"
-            :disabled="!nomeValido"
-            :class="[
-              'border rounded px-2 py-1 text-sm transition-colors duration-200 appearance-none',
-              'w-1/3',
-              'no-focus',
-              { 'animate-blink-border': devePiscarEntrega, 'opacity-60 cursor-not-allowed': !nomeValido }
-            ]"
-            aria-label="Modo de entrega"
-          >
-            <option value="" disabled>Entrega</option>
-            <!-- Mantemos os CODES internos, só ajustamos os rótulos para refletir o Strapi -->
-            <option value="retirada">Vou retirar no Meukkul</option>
-            <option value="uber">Uber entrega no Meukkul</option>
-            <option value="meukkul">Entrega no Meukkul por (RS: 4,00)</option>
-          </select>
+          <div class="relative w-1/3">
+            <select
+              ref="entregaSelectRef"
+              v-model="selecaoEntregaUI"
+              @change="onSelectEntregaChange"
+              :disabled="!nomeValido"
+              :class="[
+                'select-modern no-focus transition-colors duration-200 appearance-none pr-8',
+                { 'animate-blink-border': devePiscarEntrega, 'opacity-60 cursor-not-allowed': !nomeValido }
+              ]"
+              aria-label="Modo de entrega"
+            >
+              <option value="" disabled>Entrega</option>
+              <!-- Mantemos os CODES internos, só ajustamos os rótulos para refletir o Strapi -->
+              <option value="retirada">Vou retirar no Meukkul</option>
+              <option value="uber">Uber entrega no Meukkul</option>
+              <option value="meukkul">Entrega no Meukkul por (RS: 4,00)</option>
+            </select>
+            <!-- seta customizada (não interfere em acessibilidade) -->
+            <span class="select-arrow pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                <path d="M6 7L10 11L14 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
 
           <!-- Terceiro: Select Pagamento (desabilitado até entrega escolhida) -->
-          <select
-            ref="pagamentoSelectRef"
-            v-model="selecaoPagamentoUI"
-            @change="onSelectPagamentoChange"
-            :disabled="!opcaoEntrega"
-            :class="[
-              'border rounded px-2 py-1 text-sm transition-colors duration-200 appearance-none',
-              'w-1/3',
-              'no-focus',
-              { 'animate-blink-border': devePiscarPagamento, 'opacity-60 cursor-not-allowed': !opcaoEntrega }
-            ]"
-            aria-label="Forma de pagamento"
-          >
-            <option value="" disabled>Pagamento</option>
-            <option value="pix">Pix</option>
-            <option value="link">Link de pagamento</option>
-            <option value="dinheiro">Dinheiro Vivo</option>
-            <option value="credito">Cartão de Crédito</option>
-            <!-- REMOVIDO débito do front, conforme Strapi -->
-          </select>
+          <div class="relative w-1/3">
+            <select
+              ref="pagamentoSelectRef"
+              v-model="selecaoPagamentoUI"
+              @change="onSelectPagamentoChange"
+              :disabled="!opcaoEntrega"
+              :class="[
+                'select-modern no-focus transition-colors duration-200 appearance-none pr-8',
+                { 'animate-blink-border': devePiscarPagamento, 'opacity-60 cursor-not-allowed': !opcaoEntrega }
+              ]"
+              aria-label="Forma de pagamento"
+            >
+              <option value="" disabled>Pagamento</option>
+              <option value="pix">Pix</option>
+              <option value="link">Link de pagamento</option>
+              <option value="dinheiro">Dinheiro Vivo</option>
+              <option value="credito">Cartão de Crédito</option>
+              <!-- REMOVIDO débito do front, conforme Strapi -->
+            </select>
+            <span class="select-arrow pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                <path d="M6 7L10 11L14 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -222,7 +234,7 @@
           <p v-else class="text-gray-600">Escolha uma forma de pagamento para ver instruções específicas.</p>
         </div>
 
-        <div class="mt-4 flex items-center justify-end gap-2">
+        <div class="mt-4 flex itens-center justify-end gap-2">
           <button
             type="button"
             class="px-4 py-2 rounded-md text-white bg-pink-500 hover:bg-pink-600 cursor-pointer confirm-btn"
@@ -401,7 +413,7 @@
     <!-- RODAPÉ INFERIOR -->
     <footer class="p-4 border-t ">
       <div class="flex flex-col gap-3">
-        <label v-if="preRequisitosPolitica" class="inline-flex items-start gap-3 cursor-pointer select-none">
+        <label v-if="preRequisitosPolitica && opcaoPagamento" class="inline-flex items-start gap-3 cursor-pointer select-none policy-card p-2 rounded-md border">
           <input
             type="checkbox"
             v-model="politicaChecked"
@@ -409,8 +421,14 @@
             aria-label="Li e concordo com a política de troca e devolução"
           />
           <div>
-            <div class="font-medium">Li e concordo com a política de troca e devolução</div>
-            <div class="text-xs text-gray-500">Ao marcar, você visualizará nosso alerta e a política e deverá confirmá-la.</div>
+            <div class="font-medium">
+              <span v-if="!leituraConfirmada">Leia os termos para ver se concorda</span>
+              <span v-else>Li a política, estou ciente e concordo</span>
+            </div>
+            <div class="text-xs text-gray-500">
+              <span v-if="!leituraConfirmada">Ao marcar, você visualizará nosso alerta e a política e deverá confirmá-la.</span>
+              <span v-else>Você já confirmou a política.</span>
+            </div>
           </div>
         </label>
       </div>
@@ -469,7 +487,7 @@ const router = useRouter()
 
 /* DOM refs para foco */
 const nomeInputRef = ref<HTMLInputElement | null>(null)
-const entregaSelectRef = ref<HTMLInputElement | null>(null)
+const entregaSelectRef = ref<HTMLSelectElement | null>(null)
 const pagamentoSelectRef = ref<HTMLSelectElement | null>(null)
 
 /* ------------------- NOMES BASE ------------------- */
@@ -580,9 +598,20 @@ const total = computed<number>(() => subtotal.value + frete.value)
 const nomeValidacao = computed(() => validarPrimeiroNome(clienteNome.value))
 const nomeValido = computed<boolean>(() => !!nomeValidacao.value.valido)
 
-const devePiscarEntrega = computed<boolean>(() => subtotal.value >= 15 && !opcaoEntrega.value)
-const devePiscarPagamento = computed<boolean>(() => subtotal.value >= 15 && !!opcaoEntrega.value && !opcaoPagamento.value)
-const devePiscarNome = computed<boolean>(() => subtotal.value >= 15 && !!opcaoEntrega.value && !!opcaoPagamento.value && !nomeValido.value)
+/* Novo: campo de aviso baseado na mesma priorização da mensagemAviso (mapeia para os campos) */
+const avisoCampo = computed<'nome' | 'entrega' | 'pagamento' | null>(() => {
+  // não sinalizamos se for avisoExtra ou aviso de valor mínimo/política
+  if (avisoExtra.value) return null
+  if (subtotal.value < 15) return null
+  if (!nomeValido.value) return 'nome'
+  if (!opcaoEntrega.value) return 'entrega'
+  if (!opcaoPagamento.value) return 'pagamento'
+  return null
+})
+
+const devePiscarEntrega = computed<boolean>(() => avisoCampo.value === 'entrega')
+const devePiscarPagamento = computed<boolean>(() => avisoCampo.value === 'pagamento')
+const devePiscarNome = computed<boolean>(() => avisoCampo.value === 'nome')
 
 const preRequisitosPolitica = computed<boolean>(() => subtotal.value >= 15 && !!opcaoEntrega.value && nomeValido.value)
 const exibindoAlerta = computed<boolean>(() => politicaChecked.value && !alertaConfirmado.value && !leituraConfirmada.value)
@@ -624,6 +653,18 @@ watch(clienteNome, (novo: string) => {
   if (formatted !== novo) {
     nextTick(() => {
       clienteNome.value = formatted
+    })
+  }
+})
+
+/* Quando nomeValido transitar de false -> true, focar e abrir o select de entrega */
+watch(nomeValido, (novo: boolean, antigo: boolean) => {
+  if (novo && !antigo) {
+    nextTick(() => {
+      // foco e tentativa de abrir o select nativo
+      if (entregaSelectRef.value) {
+        openNativeSelect(entregaSelectRef.value)
+      }
     })
   }
 })
@@ -730,6 +771,25 @@ function formatarVariante(v: any): string {
 function abrirSacola() { isOpen.value = true }
 function fecharSacola() { isOpen.value = false }
 
+/* ---------- Função utilitária para focar e tentar abrir selects nativos ---------- */
+/* Observação: abrir select programaticamente é limitado por navegadores; fazemos as tentativas
+   más seguras: focus(), dispatch de eventos de teclado ('ArrowDown', ' '), e click() como fallback. */
+function openNativeSelect(el: HTMLSelectElement | null) {
+  if (!el) return
+  try { el.focus({ preventScroll: true } as any) } catch { try { el.focus() } catch {} }
+  // dispatch eventos de teclado para tentar abrir o dropdown
+  try {
+    const ev1 = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })
+    el.dispatchEvent(ev1)
+    const ev2 = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })
+    el.dispatchEvent(ev2)
+  } catch (e) {
+    // ignore
+  }
+  // fallback: .click()
+  try { el.click() } catch (e) {}
+}
+
 /* ------------------- FLUXOS (ENTREGA / POLÍTICA / PAGAMENTO) ------------------- */
 function confirmarEntrega() {
   if (!entregaPendente.value) return
@@ -742,6 +802,14 @@ function confirmarEntrega() {
     opcaoPagamento.value = ''
     selecaoPagamentoUI.value = ''
   }
+
+  // Após confirmar entrega, focar e abrir select de pagamento para que o usuário escolha
+  nextTick(() => {
+    // leve timeout para garantir que o select esteja habilitado/renderizado
+    setTimeout(() => {
+      if (pagamentoSelectRef.value) openNativeSelect(pagamentoSelectRef.value)
+    }, 60)
+  })
 }
 function cancelarEntrega() {
   entregaPendente.value = null
@@ -867,6 +935,9 @@ async function enviarPedidoParaWhatsApp() {
 
     // 5) Limpar sacola após pedido criado com sucesso.
     sacola.limparSacola()
+    // limpar campos nome entrega e pagamento e fechar sacola
+    resetarFormulario()
+    fecharSacola()
 
     // IMPORTANT: removido o redirecionamento para 'brindes' daqui.
     // O redirecionamento para brindes agora acontece apenas no botão "meu brinde 🥰".
@@ -948,7 +1019,7 @@ function checarTransicaoLimiar(prev: number, atual: number) {
   const antesMaiorOuIgual = prev >= LIMIAR_BRINDE
   const agoraMenor = atual < LIMIAR_BRINDE
 
-  // se atravessou o limiar em qualquer direção, removemos brinde(s) de custo zero
+  // se atravessou o limiar em qualquer direção, removemos brinde(s) de preco 0
   if ((antesMenor && agoraMaiorOuIgual) || (antesMaiorOuIgual && agoraMenor)) {
     // somente agir se houver brinde(s) de preco 0 na sacola
     const temBrinde = sacola.itens.some((it: any) => Number(it.preco) === 0)
@@ -973,8 +1044,7 @@ watch(total, (novo) => {
   // 2) se o usuário já havia clicado em "Meu Brinde" (brindeLiberado == true)
   //    e o total aumentou (novo > prevTotal), então assumimos que ele adicionou
   //    um produto com valor (>0) ou houve aumento no total e precisamos
-  //    disponibilizar novamente a div "Escolhe meu brinde".
-  //    (conforme solicitado: usar somente total para detectar o evento)
+  //    disponibilizar novamente a div "Escolhe meu brinde". 
   if (brindeLiberado.value && novo > prevTotal.value) {
     brindeLiberado.value = false
     avisoExtra.value = 'Você adicionou um item que alterou o valor total. Clique em "Escolhe meu brinde 🥰" novamente para selecionar seu brinde.'
@@ -1011,6 +1081,18 @@ function removerProdutoCustom(index: number, item: any) {
     console.warn('Erro ao verificar preço do item removido', e)
   }
 }
+
+// limpar campos nome entrega pagamento
+function resetarFormulario() {
+  clienteNome.value = ""
+  opcaoEntrega.value = ""
+  selecaoEntregaUI.value = ""
+  opcaoPagamento.value = ""
+  selecaoPagamentoUI.value = ""
+  politicaChecked.value = false
+  brindeLiberado.value = false
+}
+
 
 /* ------------------- Expose para pai ------------------- */
 defineExpose({ abrirSacola, fecharSacola })
@@ -1067,6 +1149,40 @@ footer .rounded-lg {
   box-shadow: none !important;
 }
 
+/* ---------- Estilos para selects "mais bonitos" (clean + moderno) ---------- */
+.select-modern {
+  width: 100%;
+  padding-left: 0.5rem;
+  padding-right: 2.25rem; /* espaço para seta */
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(16,24,40,0.04);
+  transition: box-shadow 150ms ease, border-color 150ms ease, transform 120ms ease;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  font-size: 0.875rem;
+  line-height: 1rem;
+  color: #111827;
+}
+.select-modern:focus {
+  outline: none;
+  box-shadow: 0 6px 18px rgba(213,106,160,0.08);
+  border-color: rgba(213,106,160,0.6);
+}
+.select-modern[disabled] {
+  background: #f8fafc;
+  cursor: not-allowed;
+  opacity: 0.9;
+}
+
+/* seta pequena à direita */
+.select-arrow svg { color: #6b7280; width: 14px; height: 14px; }
+
+/* Mantém comportamento responsivo já existente */
 @media (min-width: 640px) {
   .policy-card { max-height: 34rem; }
 }
