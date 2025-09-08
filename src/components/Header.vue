@@ -123,19 +123,33 @@
         </div>
       </nav>
 
+     <!-- icon da sacola -->
+
+    
       <div
-  class="text-2xl cursor-pointer whitespace-nowrap order-4 md:order-none"
+  class="flex items-center text-base mt-2 text-stone-50
+   cursor-pointer whitespace-nowrap order-4 md:order-none"
   @click="sacolaRef?.abrirSacola()"
 >
-  sacola
+
+<span :key="totalPreco" class="price-loop" aria-live="polite">
+  R$ {{ totalPreco.toFixed(2) }}
+</span>
+<img src="/money.png" alt="sacola" class="w-11 h-11 icon-click ml-2" />
+
+
 </div>
+
+
+
+<!-- fim do inco -->
 
     </div>
   </header>
 
   <div
     v-if="prateleirasVisiveis !== null && selectedVitrineShelf"
-    class="fixed min-w-[180px] bg-white text-[#d56aa0] rounded shadow-md p-2 z-50"
+    class="  fixed min-w-[180px] bg-white text-[#d56aa0] rounded shadow-md p-2 z-50"
     :style="`top: ${dropdownCoords.top}px; left: ${dropdownCoords.left}px`"
     @mouseenter="clearCloseTimeout"
     @mouseleave="closeShelfOnLeaveDebounced"
@@ -157,7 +171,8 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from 'vue';
-import SacolaLateral from '@/components/sacola/sacolaLateral.vue'
+import SacolaLateral from '@/components/sacola/sacolaLateral.vue';
+import { useSacolaStore } from '@/stores/useSacolaStore';
 
 
 const sacolaRef = ref<InstanceType<typeof SacolaLateral> | null>(null)
@@ -404,9 +419,74 @@ onUnmounted(() => {
   if (closeDropdownTimeout !== null)
     clearTimeout(closeDropdownTimeout);
 });
+
+
+const sacolaStore = useSacolaStore();
+const totalPreco = computed(() => sacolaStore.totalPreco);
+
+
 </script>
 
+
+
+<!-- stilos nativos css -->
+
+
 <style scoped>
+/* animação do clique no ícone */
+@keyframes clickPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.85); }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* animação do preço: entra suave da direita e sai pela esquerda */
+@keyframes priceSlideLoop {
+  0%   { opacity: 0; transform: translateX(18px); }
+  10%  { opacity: 1; transform: translateX(0); }
+  70%  { opacity: 1; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(-18px); }
+}
+
+.icon-click {
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(.2,.9,.2,1), box-shadow 160ms;
+  display: inline-block;
+}
+
+.icon-click:active {
+  animation: clickPop 0.32s ease-in-out;
+  transform-origin: center;
+}
+
+.price-loop {
+  display: inline-block;
+  animation: priceSlideLoop 3.6s cubic-bezier(.2,.9,.2,1) infinite;
+  font-family: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  font-size: 1rem;      /* delicado e menor que antes */
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  margin-left: 0.6rem;
+  will-change: transform, opacity;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.12);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (max-width: 640px) {
+  .price-loop { font-size: 0.95rem; margin-left: 0.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .price-loop, .icon-click {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* já existia */
 .forcar-hover {
   background-color: rgba(0, 0, 0, 0.3);
 }
@@ -426,3 +506,4 @@ onUnmounted(() => {
   opacity: 1;
 }
 </style>
+

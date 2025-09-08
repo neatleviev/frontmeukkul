@@ -59,5 +59,21 @@ export const useSacolaStore = defineStore('sacola', {
     
   },
 
+  getters: {
+    totalPreco: (state) => {
+      return state.itens.reduce((total, item) => {
+        const precoItem = item.preco ? item.preco : 0;
+        const quantidade = item.quantidadeSelecionada ? item.quantidadeSelecionada : 0;
+        return total + (precoItem * quantidade);
+      }, 0);
+    },
+  },
+
+  
+
   persist: true
 })
+
+
+
+
