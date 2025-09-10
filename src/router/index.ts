@@ -23,7 +23,16 @@ const routes = [
   name: 'brindes',
   component: () => import('@/views/brindes.vue'),
   props: true
-}]
+  },
+  {
+  path: '/pedidos',
+  name: 'Pedidos',
+  component: () => import('@/views/Pedidos.vue'),
+  props: true
+}
+
+
+]
 
 const router = createRouter({
   history: createWebHistory(),
