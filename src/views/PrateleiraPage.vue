@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import BotaoVoltar from '@/components/BotaoVoltar.vue'
 import cardProduto from '@/components/cardProduto.vue'
-
+ 
 const route = useRoute()
 const prateleiraId = ref<string | null>((route.params.id as string) || null)
 const prateleiraNome = ref<string | null>(null)
