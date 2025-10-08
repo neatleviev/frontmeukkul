@@ -11,7 +11,7 @@
     </div>
 
     <div
-      class="relative w-full h-70 overflow-hidden mb-3 bg-white rounded-xl"
+      class="relative  w-full h-60 overflow-hidden  bg-white rounded-xl"
       v-if="product.fotos?.length"
     >
       <!-- Ícone de fogo (colocado no canto superior direito da imagem) -->
@@ -29,7 +29,7 @@
         :key="i"
         :src="foto.url"
         :alt="foto.name"
-        class="absolute inset-0 w-full h-70 object-contain transition-opacity duration-700 ease-out"
+        class="absolute inset-0 w-full h-60 object-contain transition-opacity duration-700 ease-out"
         :style="{
           opacity: currentImageIndex === i || product.fotos.length === 1 ? 1 : 0,
           zIndex: currentImageIndex === i ? 10 : 0
@@ -98,19 +98,28 @@
           >
             <span class="flame-btn-text">{{ estoqueDisponivel <= 0 ? 'Tudo adicionado' : 'pegar' }}</span>
           </button>
+      <!-- select quantidade -->
+       <div class="flex items-center justify-between w-fit rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white">
+        <button
+          @click.stop="diminuirQuantidade"
+          class="w-10 h-7 flex items-center justify-center text-lg font-medium hover:bg-gray-100 active:scale-95 transition cursor-pointer disabled:opacity-50"
+        >
+          −
+        </button>
 
-          <div class="flex items-center rounded-xl overflow-hidden shadow-sm card-border">
-            <button
-              @click.stop="diminuirQuantidade"
-              class="px-3 py-1 hover:bg-gray-50 transition active:scale-90 cursor-pointer shadow-inner"
-            >-</button>
-            <span class="px-4 py-1 min-w-8 text-center select-none">{{ quantidade }}</span>
-            <button
-              @click.stop="aumentarQuantidade"
-              class="px-3 py-1 hover:bg-gray-50 transition active:scale-90 cursor-pointer shadow-inner"
-              :disabled="quantidade >= estoqueDisponivel"
-            >+</button>
-          </div>
+        <span class="w-12 text-center text-base font-semibold select-none">
+          {{ quantidade }}
+        </span>
+
+        <button
+          @click.stop="aumentarQuantidade"
+          class="w-10 h-7 flex items-center justify-center text-lg font-medium hover:bg-gray-100 active:scale-95 transition cursor-pointer disabled:opacity-50"
+          :disabled="quantidade >= estoqueDisponivel"
+        >
+          +
+        </button>
+      </div>
+
         </div>
         <span v-if="estoqueDisponivel <= 0" class="text-rose-600 text-xs mt-1">Todas as unidades disponíveis já estão na sacola.</span>
       </template>
