@@ -207,14 +207,26 @@ function closeDropdownOnSelect() {
   prateleirasVisiveis.value = null;
   hoveringShelfArea.value = false;
 }
+
+// document click handler: desktop respects "click outside to close" behavior,
+// while mobile closes on any click (requested behavior).
 function handleDocumentClick(e: MouseEvent) {
-  const t = e.target as Node | null;
   if (prateleirasVisiveis.value === null) return;
+  if (!isDesktop.value) {
+    // Mobile: close on any click/tap
+    prateleirasVisiveis.value = null;
+    hoveringShelfArea.value = false;
+    cleanupAfterPointer();
+    return;
+  }
+  // Desktop: only close when click is outside carousel and dropdown
+  const t = e.target as Node | null;
   if (carouselContainer.value?.contains(t as Node)) return;
   if (dropdownEl.value?.contains(t as Node)) return;
   prateleirasVisiveis.value = null;
   hoveringShelfArea.value = false;
 }
+
 function clearPointerDownRecord() {
   pointerDownState.active = false;
   pointerDownState.startX = 0;
@@ -315,7 +327,16 @@ function repositionDropdownForActive() {
 }
 
 function onWindowScroll() {
-  if (prateleirasVisiveis.value !== null) repositionDropdownForActive();
+  if (prateleirasVisiveis.value !== null) {
+    if (!isDesktop.value) {
+      // Mobile: close dropdown on any page scroll
+      prateleirasVisiveis.value = null;
+      hoveringShelfArea.value = false;
+      cleanupAfterPointer();
+      return;
+    }
+    repositionDropdownForActive();
+  }
 }
 
 async function fetchVitrines() {
@@ -345,9 +366,37 @@ function cleanupAfterPointer() {
   targetScrollLeft = null;
 }
 
+// ---- Mobile "close on any interaction" handlers ----
+function handleGlobalPointerDown(e: Event) {
+  if (prateleirasVisiveis.value === null || isDesktop.value) return;
+  // close immediately on pointer down (mobile): requested behaviour
+  prateleirasVisiveis.value = null;
+  hoveringShelfArea.value = false;
+  cleanupAfterPointer();
+}
+
+function handleGlobalPointerMove(e: PointerEvent) {
+  if (prateleirasVisiveis.value === null || isDesktop.value) return;
+  prateleirasVisiveis.value = null;
+  hoveringShelfArea.value = false;
+  cleanupAfterPointer();
+}
+
+function handleGlobalTouchMove(e: TouchEvent) {
+  if (prateleirasVisiveis.value === null || isDesktop.value) return;
+  prateleirasVisiveis.value = null;
+  hoveringShelfArea.value = false;
+  cleanupAfterPointer();
+}
+
 onMounted(() => {
   fetchVitrines();
   document.addEventListener('click', handleDocumentClick);
+  // Mobile: close dropdown on any pointerdown / move / touchmove; desktop will ignore these handlers
+  document.addEventListener('pointerdown', handleGlobalPointerDown);
+  window.addEventListener('pointermove', handleGlobalPointerMove, { passive: true });
+  window.addEventListener('touchmove', handleGlobalTouchMove, { passive: true });
+
   window.addEventListener('resize', onWindowResize);
   window.addEventListener('scroll', onWindowScroll, { passive: true });
   onWindowResize();
@@ -355,6 +404,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick);
+  document.removeEventListener('pointerdown', handleGlobalPointerDown);
+  window.removeEventListener('pointermove', handleGlobalPointerMove as any);
+  window.removeEventListener('touchmove', handleGlobalTouchMove as any);
+
   window.removeEventListener('resize', onWindowResize);
   window.removeEventListener('scroll', onWindowScroll);
   cleanupAfterPointer();
