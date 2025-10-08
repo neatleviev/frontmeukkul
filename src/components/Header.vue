@@ -125,14 +125,27 @@ const selectedVitrineShelf = computed(() => {
 
 const carouselContainer = ref<HTMLElement | null>(null);
 const dropdownEl = ref<HTMLElement | null>(null);
+
+// pointer / drag state
 const pointerDownState = { active: false, startX: 0, startY: 0, startScrollLeft: 0, pointerId: null as number | null };
 const isPointerDown = ref(false);
 const isDragging = ref(false);
 const DRAG_THRESHOLD = 6;
 const SCROLL_DRAG_THRESHOLD = 4;
 let pointerDownClearTimer: ReturnType<typeof setTimeout> | null = null;
-let rafId: number | null = null;
+
+// smoothing / momentum variables
+let moveRafId: number | null = null;
+let momentumRaf: number | null = null;
+let lastMoves: Array<{ x: number; t: number }> = [];
+let velocity = 0; // px per ms
+const MAX_TRACKED = 6;
+const DECAY = 0.005; // decay coefficient per ms for exponential decay
+const VELOCITY_STOP = 0.02; // px/ms threshold to stop momentum
+
+let rafId: number | null = null; // used by button scroll animation
 let targetScrollLeft: number | null = null;
+
 const scrollStep = 220;
 const isDesktop = ref(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
 const showControllers = computed(() => isDesktop.value);
@@ -140,7 +153,7 @@ const showControllers = computed(() => isDesktop.value);
 let closeDropdownTimeout: ReturnType<typeof setTimeout> | null = null;
 const hoveringShelfArea = ref(false);
 
-// Flag to track interactions that start inside dropdown/nav on mobile so we don't close
+// Mobile helpers
 let mobileInteractionStartedInside = false;
 
 function isButtonHovered(vitrineId: number) {
@@ -176,6 +189,7 @@ function openShelfOnHover(id: number, event?: MouseEvent | PointerEvent | Event)
 }
 
 function handleClickVitrine(id: number, event?: MouseEvent | PointerEvent | TouchEvent | Event) {
+  // Prevent click activation if it was a drag
   if (pointerDownState.active && carouselContainer.value) {
     let wasDrag = false;
     if (event && 'clientX' in event) {
@@ -211,18 +225,14 @@ function closeDropdownOnSelect() {
   hoveringShelfArea.value = false;
 }
 
-// document click handler: desktop respects "click outside to close" behavior,
-// while mobile used to close on any click; keep that but ensure pointerdown doesn't cancel clicks on dropdown links.
 function handleDocumentClick(e: MouseEvent) {
   if (prateleirasVisiveis.value === null) return;
   if (!isDesktop.value) {
-    // Mobile: close on click (this runs after the link's click handler, so navigation is preserved).
     prateleirasVisiveis.value = null;
     hoveringShelfArea.value = false;
     cleanupAfterPointer();
     return;
   }
-  // Desktop: only close when click is outside carousel and dropdown
   const t = e.target as Node | null;
   if (carouselContainer.value?.contains(t as Node)) return;
   if (dropdownEl.value?.contains(t as Node)) return;
@@ -239,12 +249,31 @@ function clearPointerDownRecord() {
   isPointerDown.value = false;
   isDragging.value = false;
   if (pointerDownClearTimer) { clearTimeout(pointerDownClearTimer); pointerDownClearTimer = null; }
+  // remove grabbing class if any
+  if (carouselContainer.value) carouselContainer.value.classList.remove('is-grabbing');
+}
+
+function cancelMomentum() {
+  if (momentumRaf !== null) { cancelAnimationFrame(momentumRaf); momentumRaf = null; }
+  velocity = 0;
+}
+
+function cancelMoveRaf() {
+  if (moveRafId !== null) { cancelAnimationFrame(moveRafId); moveRafId = null; }
+}
+
+function cancelAllAnimations() {
+  cancelMomentum();
+  cancelMoveRaf();
+  if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; targetScrollLeft = null; }
 }
 
 function onPointerDown(e: PointerEvent) {
   if (!carouselContainer.value) return;
   const target = e.target as HTMLElement | null;
-  if (target?.closest('.controller')) return;
+  if (target?.closest('.controller')) return; // ignore clicks on controllers
+
+  // start tracking
   isPointerDown.value = true;
   isDragging.value = false;
   pointerDownState.active = true;
@@ -252,8 +281,46 @@ function onPointerDown(e: PointerEvent) {
   pointerDownState.startY = e.clientY;
   pointerDownState.startScrollLeft = carouselContainer.value.scrollLeft;
   pointerDownState.pointerId = e.pointerId ?? null;
+
+  // stop any running animations
+  cancelAllAnimations();
+
+  // prepare velocity tracking
+  lastMoves = [{ x: e.clientX, t: performance.now() }];
+
   try { carouselContainer.value.setPointerCapture?.(e.pointerId); } catch {}
   document.body.style.userSelect = 'none';
+
+  // visual feedback: grabbing cursor
+  carouselContainer.value.classList.add('is-grabbing');
+  // ensure direct scroll writes during drag (no smooth scroll interference)
+  carouselContainer.value.style.scrollBehavior = 'auto';
+}
+
+function onPointerMove(e: PointerEvent) {
+  if (!pointerDownState.active || !carouselContainer.value) return;
+
+  // record for velocity calculation
+  const now = performance.now();
+  lastMoves.push({ x: e.clientX, t: now });
+  if (lastMoves.length > MAX_TRACKED) lastMoves.shift();
+
+  const x = e.clientX;
+  const walk = pointerDownState.startX - x;
+  const maxScroll = Math.max(0, carouselContainer.value.scrollWidth - carouselContainer.value.clientWidth);
+  let newScroll = pointerDownState.startScrollLeft + walk;
+  newScroll = Math.max(0, Math.min(newScroll, maxScroll));
+
+  // throttle actual DOM write to RAF to avoid heavy layout thrashing
+  if (moveRafId === null) {
+    moveRafId = requestAnimationFrame(() => {
+      if (carouselContainer.value) carouselContainer.value.scrollLeft = newScroll;
+      moveRafId = null;
+    });
+  }
+
+  const scrollDelta = Math.abs((carouselContainer.value?.scrollLeft ?? 0) - pointerDownState.startScrollLeft);
+  if (Math.abs(walk) > DRAG_THRESHOLD || scrollDelta > SCROLL_DRAG_THRESHOLD) isDragging.value = true;
 }
 
 function animateScroll() {
@@ -265,17 +332,6 @@ function animateScroll() {
   rafId = requestAnimationFrame(animateScroll);
 }
 
-function onPointerMove(e: PointerEvent) {
-  if (!pointerDownState.active || !carouselContainer.value) return;
-  const x = e.clientX;
-  const walk = pointerDownState.startX - x;
-  const maxScroll = Math.max(0, carouselContainer.value.scrollWidth - carouselContainer.value.clientWidth);
-  const newScroll = pointerDownState.startScrollLeft + walk;
-  carouselContainer.value.scrollLeft = Math.max(0, Math.min(newScroll, maxScroll));
-  const scrollDelta = Math.abs(carouselContainer.value.scrollLeft - pointerDownState.startScrollLeft);
-  if (Math.abs(walk) > DRAG_THRESHOLD || scrollDelta > SCROLL_DRAG_THRESHOLD) isDragging.value = true;
-}
-
 function onPointerUp(e?: PointerEvent | MouseEvent) {
   if (carouselContainer.value) {
     try {
@@ -284,14 +340,72 @@ function onPointerUp(e?: PointerEvent | MouseEvent) {
     } catch {}
   }
   document.body.style.userSelect = '';
-  if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
   if (pointerDownClearTimer) clearTimeout(pointerDownClearTimer);
-  pointerDownClearTimer = setTimeout(clearPointerDownRecord, 150);
+  pointerDownClearTimer = setTimeout(clearPointerDownRecord, 120);
+
+  // compute momentum velocity based on recent moves
+  if (!pointerDownState.active || !carouselContainer.value) {
+    // just cleanup
+    return;
+  }
+
+  // choose sample window: prefer last ~40-120ms for robust velocity
+  if (lastMoves.length >= 2) {
+    const last = lastMoves[lastMoves.length - 1];
+    // find a previous point at least 30ms earlier (but not older than full buffer)
+    let first = lastMoves[0];
+    for (let i = lastMoves.length - 2; i >= 0; i--) {
+      if (last.t - lastMoves[i].t >= 30) { first = lastMoves[i]; break; }
+    }
+    const dt = last.t - first.t || 1;
+    // positive velocity => finger moved left => scroll should increase
+    velocity = (first.x - last.x) / dt; // px per ms
+  } else {
+    velocity = 0;
+  }
+
+  // If velocity significant, start an inertia animation (momentum)
+  const maxScroll = carouselContainer.value ? Math.max(0, carouselContainer.value.scrollWidth - carouselContainer.value.clientWidth) : 0;
+  if (Math.abs(velocity) > 0.06) { // threshold in px/ms for starting momentum
+    let lastTs = performance.now();
+    function step(ts: number) {
+      if (!carouselContainer.value) { cancelMomentum(); return; }
+      const dt = ts - lastTs;
+      lastTs = ts;
+      // exponential decay
+      velocity *= Math.exp(-DECAY * dt);
+      const delta = velocity * dt; // px
+      let next = carouselContainer.value.scrollLeft + delta;
+      // clamp and stop if hit boundary
+      if (next < 0) { next = 0; velocity = 0; }
+      const max = Math.max(0, carouselContainer.value.scrollWidth - carouselContainer.value.clientWidth);
+      if (next > max) { next = max; velocity = 0; }
+      carouselContainer.value.scrollLeft = next;
+      if (Math.abs(velocity) > VELOCITY_STOP) {
+        momentumRaf = requestAnimationFrame(step);
+      } else {
+        momentumRaf = null;
+      }
+    }
+    momentumRaf = requestAnimationFrame(step);
+  } else {
+    velocity = 0;
+  }
+
+  // restore any styles
+  if (carouselContainer.value) {
+    // allow smooth scroll again for button-based scrolls
+    carouselContainer.value.style.scrollBehavior = 'auto';
+    carouselContainer.value.classList.remove('is-grabbing');
+  }
 }
+
 function onPointerUpNoEvent() { onPointerUp(); }
 
 function scrollByOffset(offset: number) {
   if (!carouselContainer.value) return;
+  // cancel momentum and other animations
+  cancelAllAnimations();
   const maxScroll = Math.max(0, carouselContainer.value.scrollWidth - carouselContainer.value.clientWidth);
   const target = Math.max(0, Math.min(carouselContainer.value.scrollLeft + offset, maxScroll));
   targetScrollLeft = target;
@@ -332,7 +446,6 @@ function repositionDropdownForActive() {
 function onWindowScroll() {
   if (prateleirasVisiveis.value !== null) {
     if (!isDesktop.value) {
-      // Mobile: close dropdown on any page scroll
       prateleirasVisiveis.value = null;
       hoveringShelfArea.value = false;
       cleanupAfterPointer();
@@ -365,21 +478,18 @@ function cleanupAfterPointer() {
   if (pointerDownClearTimer) { clearTimeout(pointerDownClearTimer); pointerDownClearTimer = null; }
   clearPointerDownRecord();
   document.body.style.userSelect = '';
-  if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
-  targetScrollLeft = null;
+  cancelAllAnimations();
 }
 
-// ---- Mobile "close on any interaction" handlers (tuned to allow clicks inside dropdown) ----
+// ---- Mobile "close on any interaction" handlers ----
 function handleGlobalPointerDown(e: Event) {
   if (prateleirasVisiveis.value === null || isDesktop.value) return;
   const t = e.target as Node | null;
-  // If interaction starts inside the dropdown or inside the nav carousel, don't close — allow the click to go through.
   if (t && (dropdownEl.value?.contains(t) || carouselContainer.value?.contains(t))) {
     mobileInteractionStartedInside = true;
     return;
   }
   mobileInteractionStartedInside = false;
-  // Otherwise, interaction started outside: close immediately
   prateleirasVisiveis.value = null;
   hoveringShelfArea.value = false;
   cleanupAfterPointer();
@@ -387,7 +497,6 @@ function handleGlobalPointerDown(e: Event) {
 
 function handleGlobalPointerMove(e: PointerEvent) {
   if (prateleirasVisiveis.value === null || isDesktop.value) return;
-  // If the pointer interaction began inside the dropdown/nav, don't close on small moves — let the click complete.
   if (mobileInteractionStartedInside) return;
   prateleirasVisiveis.value = null;
   hoveringShelfArea.value = false;
@@ -403,15 +512,17 @@ function handleGlobalTouchMove(e: TouchEvent) {
 }
 
 function handleGlobalPointerUp() {
-  // reset the small-state flag when interaction ends
   mobileInteractionStartedInside = false;
+}
+
+function onWindowResize() {
+  isDesktop.value = window.innerWidth >= 768;
+  nextTick(() => repositionDropdownForActive());
 }
 
 onMounted(() => {
   fetchVitrines();
   document.addEventListener('click', handleDocumentClick);
-  // Mobile: close dropdown on any pointerdown / move / touchmove; desktop will ignore these handlers.
-  // Tuned so that interactions starting inside dropdown/nav don't immediately close it, allowing clicks to work.
   document.addEventListener('pointerdown', handleGlobalPointerDown);
   window.addEventListener('pointermove', handleGlobalPointerMove, { passive: true });
   window.addEventListener('touchmove', handleGlobalTouchMove, { passive: true });
@@ -436,11 +547,6 @@ onUnmounted(() => {
   cleanupAfterPointer();
 });
 
-function onWindowResize() {
-  isDesktop.value = window.innerWidth >= 768;
-  nextTick(() => repositionDropdownForActive());
-}
-
 const sacolaStore = useSacolaStore();
 const totalPreco = computed(() => sacolaStore.totalPreco);
 const route = useRoute();
@@ -453,7 +559,11 @@ watch(() => route.fullPath, () => {
 <style scoped>
 .horizontal-scroll {
   -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
+  /* during drag we use direct scrollLeft writes, so keep 'auto' to avoid conflicts */
+  scroll-behavior: auto;
+  /* allow vertical pan on mobile; horizontal gestures will be handled by pointer events */
+  touch-action: pan-y;
+  will-change: scroll-position;
 }
 .scrollbar-hidden::-webkit-scrollbar { display: none; }
 .scrollbar-hidden { scrollbar-width: none; }
@@ -465,4 +575,10 @@ watch(() => route.fullPath, () => {
 .controller:hover { background-color: #fceaf3; }
 .site-header { transition: box-shadow 0.3s ease; }
 .z-60 { z-index: 60; }
+
+/* visual feedback for dragging */
+.horizontal-scroll.is-grabbing { cursor: grabbing; cursor: -webkit-grabbing; }
+
+/* small optimization: lock transform repaints on nav wrapper for smoother motion */
+.nav-wrapper { will-change: transform; }
 </style>
