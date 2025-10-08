@@ -48,6 +48,7 @@
                     @mouseenter="openShelfOnHover(vitrine.id, $event)"
                     @mouseleave="closeShelfOnLeaveDebounced"
                     :aria-expanded="prateleirasVisiveis === vitrine.id"
+                    :data-vitrine-id="vitrine.id"
                     type="button"
                   >
                     {{ vitrine.nome }}
@@ -116,93 +117,52 @@ const sacolaRef = ref<InstanceType<typeof SacolaLateral> | null>(null);
 const vitrines = ref<Vitrine[]>([]);
 const prateleirasVisiveis = ref<number | null>(null);
 const dropdownCoords = ref({ top: 0, left: 0 });
-
 const selectedVitrineShelf = computed(() => {
   if (prateleirasVisiveis.value === null) return null;
   const v = vitrines.value.find(x => x.id == prateleirasVisiveis.value);
   return v ? { ...v, prateleiras: v.prateleiras || [] } : null;
 });
 
-/* carousel / drag state */
 const carouselContainer = ref<HTMLElement | null>(null);
 const dropdownEl = ref<HTMLElement | null>(null);
-
-/* pointer-down snapshot (usado na decisão click vs drag) */
-const pointerDownState = {
-  active: false,
-  startX: 0,
-  startY: 0,
-  startScrollLeft: 0,
-  pointerId: null as number | null
-};
-
-/* flags */
+const pointerDownState = { active: false, startX: 0, startY: 0, startScrollLeft: 0, pointerId: null as number | null };
 const isPointerDown = ref(false);
 const isDragging = ref(false);
-
-/* thresholds */
-const DRAG_THRESHOLD = 6;           // pixels do ponteiro
-const SCROLL_DRAG_THRESHOLD = 4;    // pixels de scroll do container que consideramos "arraste"
-
-/* timer para limpeza após pointerup (mantemos curto para permitir click) */
+const DRAG_THRESHOLD = 6;
+const SCROLL_DRAG_THRESHOLD = 4;
 let pointerDownClearTimer: ReturnType<typeof setTimeout> | null = null;
-
-/* RAF used only for controller smooth scroll */
 let rafId: number | null = null;
 let targetScrollLeft: number | null = null;
-
 const scrollStep = 220;
-
-/* detecta se estamos em desktop (reativo) */
 const isDesktop = ref(typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
 const showControllers = computed(() => isDesktop.value);
 
-/* HOVER related (adicionado para reproduzir comportamento antigo no desktop) */
 let closeDropdownTimeout: ReturnType<typeof setTimeout> | null = null;
 const hoveringShelfArea = ref(false);
 
-function isButtonHovered(vitrineId: number): boolean {
+function isButtonHovered(vitrineId: number) {
   return prateleirasVisiveis.value === vitrineId && hoveringShelfArea.value;
 }
-
 function clearCloseTimeout() {
   hoveringShelfArea.value = true;
-  if (closeDropdownTimeout) {
-    clearTimeout(closeDropdownTimeout);
-    closeDropdownTimeout = null;
-  }
+  if (closeDropdownTimeout) clearTimeout(closeDropdownTimeout);
 }
-
 function closeShelfOnLeave() {
   hoveringShelfArea.value = false;
   if (window.innerWidth >= 768) {
     closeDropdownTimeout = setTimeout(() => {
-      if (!hoveringShelfArea.value) {
-        prateleirasVisiveis.value = null;
-      }
+      if (!hoveringShelfArea.value) prateleirasVisiveis.value = null;
     }, 200);
   }
 }
-
-function closeShelfOnLeaveDebounced() {
-  closeShelfOnLeave();
-}
+function closeShelfOnLeaveDebounced() { closeShelfOnLeave(); }
 
 function openShelfOnHover(id: number, event?: MouseEvent | PointerEvent | Event) {
-  // Aplica hover apenas em desktop
   if (!isDesktop.value) return;
-
   hoveringShelfArea.value = true;
-
-  if (closeDropdownTimeout) {
-    clearTimeout(closeDropdownTimeout);
-    closeDropdownTimeout = null;
-  }
-
+  if (closeDropdownTimeout) clearTimeout(closeDropdownTimeout);
   prateleirasVisiveis.value = id;
-
-  // posiciona dropdown baseado no botão (usa currentTarget quando possível)
-  const el = (event && (event.currentTarget as HTMLElement)) || (event && (event.target as HTMLElement));
+  const el = (event?.currentTarget as HTMLElement) || (event?.target as HTMLElement);
   if (el) {
     const rect = el.getBoundingClientRect();
     dropdownCoords.value = getDropdownPosition(rect);
@@ -212,67 +172,41 @@ function openShelfOnHover(id: number, event?: MouseEvent | PointerEvent | Event)
   }
 }
 
-/* abrir/fechar prateleiras por clique
-   Decisão de supressão do click baseada no delta do ponteiro ou delta do scroll
-*/
 function handleClickVitrine(id: number, event?: MouseEvent | PointerEvent | TouchEvent | Event) {
-  // se tivemos um pointerdown recente, decide via delta do ponteiro ou delta do scroll
   if (pointerDownState.active && carouselContainer.value) {
     let wasDrag = false;
-
-    // se o evento fornece coordenadas do ponteiro, use isso (mais confiável para mouse)
-    if (event && 'clientX' in event && typeof (event as MouseEvent).clientX === 'number') {
+    if (event && 'clientX' in event) {
       const ev = event as MouseEvent;
       const dx = Math.abs(ev.clientX - pointerDownState.startX);
       const dy = Math.abs(ev.clientY - pointerDownState.startY);
       if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) wasDrag = true;
     } else {
-      // fallback: usar delta de scroll
       const scrollDelta = Math.abs(carouselContainer.value.scrollLeft - pointerDownState.startScrollLeft);
       if (scrollDelta > SCROLL_DRAG_THRESHOLD) wasDrag = true;
     }
-
-    if (wasDrag || isDragging.value) {
-      // foi arraste — suprime click
-      clearPointerDownRecord();
-      return;
-    }
+    if (wasDrag || isDragging.value) { clearPointerDownRecord(); return; }
   }
-
-  // se veio por teclado (sem pointer state), permitimos normalmente
   if (prateleirasVisiveis.value === id) {
     prateleirasVisiveis.value = null;
   } else {
     prateleirasVisiveis.value = id;
-
     if (event) {
-      // impedir que o click borbulhe até document e faça close imediato
       try { (event as Event).stopPropagation(); } catch {}
-
-      // preferir currentTarget (o botão) para posicionar o dropdown
       const el = (event.currentTarget as HTMLElement) ?? (event.target as HTMLElement);
       if (el) {
         const rect = el.getBoundingClientRect();
         dropdownCoords.value = getDropdownPosition(rect);
-        nextTick(() => {
-          if (dropdownEl.value) {
-            dropdownCoords.value = getDropdownPosition(rect);
-          }
-        });
+        nextTick(() => { if (dropdownEl.value) dropdownCoords.value = getDropdownPosition(rect); });
       }
     }
   }
-
   clearPointerDownRecord();
 }
 
-/* fechar dropdown ao selecionar uma prateleira */
 function closeDropdownOnSelect() {
   prateleirasVisiveis.value = null;
   hoveringShelfArea.value = false;
 }
-
-/* fechar se clicar fora */
 function handleDocumentClick(e: MouseEvent) {
   const t = e.target as Node | null;
   if (prateleirasVisiveis.value === null) return;
@@ -281,8 +215,6 @@ function handleDocumentClick(e: MouseEvent) {
   prateleirasVisiveis.value = null;
   hoveringShelfArea.value = false;
 }
-
-/* limpa o registro de pointerdown / estado */
 function clearPointerDownRecord() {
   pointerDownState.active = false;
   pointerDownState.startX = 0;
@@ -291,100 +223,58 @@ function clearPointerDownRecord() {
   pointerDownState.pointerId = null;
   isPointerDown.value = false;
   isDragging.value = false;
-  if (pointerDownClearTimer) {
-    clearTimeout(pointerDownClearTimer);
-    pointerDownClearTimer = null;
-  }
+  if (pointerDownClearTimer) { clearTimeout(pointerDownClearTimer); pointerDownClearTimer = null; }
 }
 
-/* DRAG handlers (atualização imediata durante o drag) */
 function onPointerDown(e: PointerEvent) {
   if (!carouselContainer.value) return;
-
   const target = e.target as HTMLElement | null;
-  // não iniciar drag se clicou nas controllers (setas)
   if (target?.closest('.controller')) return;
-
   isPointerDown.value = true;
   isDragging.value = false;
-
-  // snapshot do pointerdown
   pointerDownState.active = true;
   pointerDownState.startX = e.clientX;
   pointerDownState.startY = e.clientY;
   pointerDownState.startScrollLeft = carouselContainer.value.scrollLeft;
   pointerDownState.pointerId = e.pointerId ?? null;
-
-  if (pointerDownClearTimer) {
-    clearTimeout(pointerDownClearTimer);
-    pointerDownClearTimer = null;
-  }
-
   try { carouselContainer.value.setPointerCapture?.(e.pointerId); } catch {}
-
-  try { document.body.style.userSelect = 'none'; } catch {}
+  document.body.style.userSelect = 'none';
 }
 
 function animateScroll() {
   if (!carouselContainer.value || targetScrollLeft === null) { rafId = null; return; }
   const cur = carouselContainer.value.scrollLeft;
-  const next = lerp(cur, targetScrollLeft, 0.22);
+  const next = cur + (targetScrollLeft - cur) * 0.22;
   carouselContainer.value.scrollLeft = next;
-  if (Math.abs(next - targetScrollLeft) < 0.5) {
-    carouselContainer.value.scrollLeft = targetScrollLeft;
-    targetScrollLeft = null;
-    rafId = null;
-    return;
-  }
+  if (Math.abs(next - targetScrollLeft) < 0.5) { carouselContainer.value.scrollLeft = targetScrollLeft; targetScrollLeft = null; rafId = null; return; }
   rafId = requestAnimationFrame(animateScroll);
 }
 
 function onPointerMove(e: PointerEvent) {
   if (!pointerDownState.active || !carouselContainer.value) return;
-
   const x = e.clientX;
   const walk = pointerDownState.startX - x;
-
-  // atualiza scroll imediatamente (sensação fluida)
   const maxScroll = Math.max(0, carouselContainer.value.scrollWidth - carouselContainer.value.clientWidth);
   const newScroll = pointerDownState.startScrollLeft + walk;
   carouselContainer.value.scrollLeft = Math.max(0, Math.min(newScroll, maxScroll));
-
-  // se o scroll efetivamente mudou o suficiente, consideramos arraste
   const scrollDelta = Math.abs(carouselContainer.value.scrollLeft - pointerDownState.startScrollLeft);
-  if (Math.abs(walk) > DRAG_THRESHOLD || scrollDelta > SCROLL_DRAG_THRESHOLD) {
-    isDragging.value = true;
-  }
+  if (Math.abs(walk) > DRAG_THRESHOLD || scrollDelta > SCROLL_DRAG_THRESHOLD) isDragging.value = true;
 }
 
 function onPointerUp(e?: PointerEvent | MouseEvent) {
   if (carouselContainer.value) {
-    // tentar liberar captura (se aplicável)
     try {
-      if (e && 'pointerId' in e && e.pointerId != null) {
-        try { (e.target as Element).releasePointerCapture?.((e as PointerEvent).pointerId); } catch {}
-      } else if (pointerDownState.pointerId != null) {
-        try { carouselContainer.value.releasePointerCapture?.(pointerDownState.pointerId); } catch {}
-      }
+      if (e && 'pointerId' in e && e.pointerId != null) (e.target as Element).releasePointerCapture?.(e.pointerId);
+      else if (pointerDownState.pointerId != null) carouselContainer.value.releasePointerCapture?.(pointerDownState.pointerId);
     } catch {}
   }
-
-  try { document.body.style.userSelect = ''; } catch {}
-
+  document.body.style.userSelect = '';
   if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
-
-  // mantemos o estado por um curto período para que o click seja disparado e o handler
-  // possa checar o delta de scroll. Depois limpamos.
   if (pointerDownClearTimer) clearTimeout(pointerDownClearTimer);
-  pointerDownClearTimer = setTimeout(() => {
-    clearPointerDownRecord();
-  }, 150);
+  pointerDownClearTimer = setTimeout(clearPointerDownRecord, 150);
 }
-
-/* wrapper pra mouseleave (evita conflito de tipos) */
 function onPointerUpNoEvent() { onPointerUp(); }
 
-/* scroll via controllers (usa RAF + lerp para suavidade nos cliques) */
 function scrollByOffset(offset: number) {
   if (!carouselContainer.value) return;
   const maxScroll = Math.max(0, carouselContainer.value.scrollWidth - carouselContainer.value.clientWidth);
@@ -393,39 +283,52 @@ function scrollByOffset(offset: number) {
   if (rafId === null) rafId = requestAnimationFrame(animateScroll);
 }
 
-/* util lerp (para controllers) */
-function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
-
-/* calcular posição do dropdown (centraliza e evita overflow) */
 function getDropdownPosition(rect: DOMRect) {
-  const dropdownWidth = dropdownEl.value ? dropdownEl.value.offsetWidth : 220;
-  const dropdownMargin = 12;
-  const controllerPadding = 60;
-
-  let centerLeft = rect.left + window.scrollX + rect.width / 2 - dropdownWidth / 2;
-  const isNearRight = rect.right > window.innerWidth - controllerPadding;
-  if (isNearRight) centerLeft -= 40;
-
-  const maxLeft = window.innerWidth - dropdownWidth - dropdownMargin;
-  const safeLeft = Math.max(dropdownMargin, Math.min(centerLeft, maxLeft));
-  const safeTop = rect.bottom + window.scrollY + 8;
-  return { top: safeTop, left: safeLeft };
+  const dropdownWidth = dropdownEl.value ? Math.max(180, dropdownEl.value.offsetWidth) : 220;
+  const dropdownHeight = dropdownEl.value ? dropdownEl.value.offsetHeight : 200;
+  const margin = 12;
+  const gap = 8;
+  let left = rect.left + rect.width / 2 - dropdownWidth / 2;
+  const maxLeft = window.innerWidth - dropdownWidth - margin;
+  left = Math.max(margin, Math.min(left, maxLeft));
+  let top = rect.bottom + gap;
+  if (dropdownEl.value) {
+    const maxTop = window.innerHeight - dropdownEl.value.offsetHeight - margin;
+    if (top > maxTop) {
+      top = rect.top - dropdownEl.value.offsetHeight - gap;
+      if (top < margin) top = margin;
+    }
+  } else {
+    if (top > window.innerHeight - 60) top = Math.max(margin, window.innerHeight - dropdownHeight - margin);
+  }
+  return { top, left };
 }
 
-/* fetch vitrines (normaliza) */
+function repositionDropdownForActive() {
+  if (prateleirasVisiveis.value === null) return;
+  const selector = `[data-vitrine-id="${prateleirasVisiveis.value}"]`;
+  const btn = carouselContainer.value?.querySelector(selector) as HTMLElement | null;
+  if (btn) {
+    const rect = btn.getBoundingClientRect();
+    dropdownCoords.value = getDropdownPosition(rect);
+  }
+}
+
+function onWindowScroll() {
+  if (prateleirasVisiveis.value !== null) repositionDropdownForActive();
+}
+
 async function fetchVitrines() {
   try {
     const strapiUrl = 'https://nice-eggs-d79e24d7a7.strapiapp.com';
     const response = await fetch(`${strapiUrl}/api/vitrines?populate=prateleiras`);
     if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
     const data = await response.json();
-
     vitrines.value = (data.data || []).map((item: any) => {
       const prRaw = item.prateleiras ?? item.attributes?.prateleiras ?? null;
       let pr: Prateleira[] = [];
       if (Array.isArray(prRaw)) pr = prRaw.map((p: any) => ({ id: p.id, nome: p.nome ?? p.attributes?.nome ?? 'Sem nome' }));
       else if (prRaw?.data && Array.isArray(prRaw.data)) pr = prRaw.data.map((p: any) => ({ id: p.id, nome: p.attributes?.nome ?? 'Sem nome' }));
-
       return { id: item.id, documentId: item.documentId ?? item.attributes?.documentId, nome: item.nome ?? item.attributes?.nome ?? 'Categoria', prateleiras: pr } as Vitrine;
     });
   } catch (err) {
@@ -434,115 +337,56 @@ async function fetchVitrines() {
   }
 }
 
-/* cleanup helper */
 function cleanupAfterPointer() {
   if (pointerDownClearTimer) { clearTimeout(pointerDownClearTimer); pointerDownClearTimer = null; }
   clearPointerDownRecord();
-  try { document.body.style.userSelect = ''; } catch {}
+  document.body.style.userSelect = '';
   if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
   targetScrollLeft = null;
 }
 
-/* ciclo de vida */
 onMounted(() => {
   fetchVitrines();
   document.addEventListener('click', handleDocumentClick);
   window.addEventListener('resize', onWindowResize);
+  window.addEventListener('scroll', onWindowScroll, { passive: true });
   onWindowResize();
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick);
   window.removeEventListener('resize', onWindowResize);
+  window.removeEventListener('scroll', onWindowScroll);
   cleanupAfterPointer();
-  if (closeDropdownTimeout) { clearTimeout(closeDropdownTimeout); closeDropdownTimeout = null; }
 });
 
 function onWindowResize() {
-  isDesktop.value = typeof window !== 'undefined' ? window.innerWidth >= 768 : true;
+  isDesktop.value = window.innerWidth >= 768;
+  nextTick(() => repositionDropdownForActive());
 }
 
-/* fechar dropdown ao navegar para outra rota */
-const route = useRoute();
-watch(() => route.fullPath, () => { prateleirasVisiveis.value = null; hoveringShelfArea.value = false; });
-
-/* sacola store */
 const sacolaStore = useSacolaStore();
 const totalPreco = computed(() => sacolaStore.totalPreco);
+const route = useRoute();
+watch(() => route.fullPath, () => {
+  prateleirasVisiveis.value = null;
+  hoveringShelfArea.value = false;
+});
 </script>
 
 <style scoped>
-.site-header,
-.site-header * {
-  -webkit-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
-.site-header *:focus:not(:focus-visible) { outline: none !important; box-shadow: none !important; }
-
 .horizontal-scroll {
   -webkit-overflow-scrolling: touch;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-left: 20px;
-  padding-right: 20px;
-  gap: 12px;
-  touch-action: pan-y;
-  cursor: grab;
-  min-width: 0;
+  scroll-behavior: smooth;
 }
-.horizontal-scroll:active { cursor: grabbing; }
-.horizontal-scroll::before,
-.horizontal-scroll::after,
-.end-spacer { width: 12px; display: inline-block; flex: 0 0 12px; }
 .scrollbar-hidden::-webkit-scrollbar { display: none; }
 .scrollbar-hidden { scrollbar-width: none; }
-
-.vitrine-btn {
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 40px;
-  min-width: 48px;
-}
-.vitrine-btn:focus { outline: none; }
-.vitrine-btn:focus-visible { outline: 2px solid rgba(213,106,160,0.9); outline-offset: 2px; }
-
-/* efeito hover "forcar-hover" herdado do antigo */
-.forcar-hover {
-  background-color: rgba(0,0,0,0.3);
-  color: white !important;
-}
-
-/* se quiser também o ícone X como antes, pode re-adicionar SVG dentro do botão com opacity controlada */
-
-.controller { width: 36px; height: 36px; }
-.left-controller { transform: translateX(-8px); }
-.right-controller { transform: translateX(8px); }
-
-.icon-click { cursor: pointer; transition: transform 160ms cubic-bezier(.2,.9,.2,1), box-shadow 160ms; display: inline-block; }
-.icon-click:active { transform-origin: center; animation: clickPop 0.32s ease-in-out; }
-@keyframes clickPop { 0%{transform:scale(1)}40%{transform:scale(0.85)}60%{transform:scale(1.08)}100%{transform:scale(1)} }
-
-.price-loop {
-  display: inline-block;
-  animation: priceSlideLoop 3.6s cubic-bezier(.2,.9,.2,1) infinite;
-  font-family: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  margin-left: 0.25rem;
-  will-change: transform, opacity;
-}
-@keyframes priceSlideLoop { 0%{opacity:0;transform:translateX(12px)}10%{opacity:1;transform:translateX(0)}70%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(-12px)} }
-
-@media (prefers-reduced-motion: reduce) {
-  .price-loop, .icon-click { animation: none !important; transition: none !important; }
-}
-@media (max-width: 640px) {
-  .price-loop { font-size: 0.95rem; margin-left: 0.4rem; }
-  .controller { display: none !important; }
-}
+.vitrine-btn.forcar-hover { background-color: #f8e6ef; }
+.price-loop { transition: 0.2s; font-weight: bold; }
+.icon-click { cursor: pointer; transition: 0.2s; }
+.icon-click:hover { transform: scale(1.05); }
+.controller { cursor: pointer; color: #d56aa0; }
+.controller:hover { background-color: #fceaf3; }
+.site-header { transition: box-shadow 0.3s ease; }
+.z-60 { z-index: 60; }
 </style>
