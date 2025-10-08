@@ -4,7 +4,7 @@
       v-for="vitrine in superVitrines"
       :key="vitrine.id"
     >
-      <h2 class="text-2xl font-bold text-[#d56aa0]">
+      <h2 class="text-2xl font-bold text-[#d56aa0] mb-4">
         {{ vitrine.nome }}
       </h2>
 
