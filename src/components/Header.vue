@@ -140,6 +140,9 @@ const showControllers = computed(() => isDesktop.value);
 let closeDropdownTimeout: ReturnType<typeof setTimeout> | null = null;
 const hoveringShelfArea = ref(false);
 
+// Flag to track interactions that start inside dropdown/nav on mobile so we don't close
+let mobileInteractionStartedInside = false;
+
 function isButtonHovered(vitrineId: number) {
   return prateleirasVisiveis.value === vitrineId && hoveringShelfArea.value;
 }
@@ -209,11 +212,11 @@ function closeDropdownOnSelect() {
 }
 
 // document click handler: desktop respects "click outside to close" behavior,
-// while mobile closes on any click (requested behavior).
+// while mobile used to close on any click; keep that but ensure pointerdown doesn't cancel clicks on dropdown links.
 function handleDocumentClick(e: MouseEvent) {
   if (prateleirasVisiveis.value === null) return;
   if (!isDesktop.value) {
-    // Mobile: close on any click/tap
+    // Mobile: close on click (this runs after the link's click handler, so navigation is preserved).
     prateleirasVisiveis.value = null;
     hoveringShelfArea.value = false;
     cleanupAfterPointer();
@@ -366,10 +369,17 @@ function cleanupAfterPointer() {
   targetScrollLeft = null;
 }
 
-// ---- Mobile "close on any interaction" handlers ----
+// ---- Mobile "close on any interaction" handlers (tuned to allow clicks inside dropdown) ----
 function handleGlobalPointerDown(e: Event) {
   if (prateleirasVisiveis.value === null || isDesktop.value) return;
-  // close immediately on pointer down (mobile): requested behaviour
+  const t = e.target as Node | null;
+  // If interaction starts inside the dropdown or inside the nav carousel, don't close — allow the click to go through.
+  if (t && (dropdownEl.value?.contains(t) || carouselContainer.value?.contains(t))) {
+    mobileInteractionStartedInside = true;
+    return;
+  }
+  mobileInteractionStartedInside = false;
+  // Otherwise, interaction started outside: close immediately
   prateleirasVisiveis.value = null;
   hoveringShelfArea.value = false;
   cleanupAfterPointer();
@@ -377,6 +387,8 @@ function handleGlobalPointerDown(e: Event) {
 
 function handleGlobalPointerMove(e: PointerEvent) {
   if (prateleirasVisiveis.value === null || isDesktop.value) return;
+  // If the pointer interaction began inside the dropdown/nav, don't close on small moves — let the click complete.
+  if (mobileInteractionStartedInside) return;
   prateleirasVisiveis.value = null;
   hoveringShelfArea.value = false;
   cleanupAfterPointer();
@@ -384,18 +396,27 @@ function handleGlobalPointerMove(e: PointerEvent) {
 
 function handleGlobalTouchMove(e: TouchEvent) {
   if (prateleirasVisiveis.value === null || isDesktop.value) return;
+  if (mobileInteractionStartedInside) return;
   prateleirasVisiveis.value = null;
   hoveringShelfArea.value = false;
   cleanupAfterPointer();
 }
 
+function handleGlobalPointerUp() {
+  // reset the small-state flag when interaction ends
+  mobileInteractionStartedInside = false;
+}
+
 onMounted(() => {
   fetchVitrines();
   document.addEventListener('click', handleDocumentClick);
-  // Mobile: close dropdown on any pointerdown / move / touchmove; desktop will ignore these handlers
+  // Mobile: close dropdown on any pointerdown / move / touchmove; desktop will ignore these handlers.
+  // Tuned so that interactions starting inside dropdown/nav don't immediately close it, allowing clicks to work.
   document.addEventListener('pointerdown', handleGlobalPointerDown);
   window.addEventListener('pointermove', handleGlobalPointerMove, { passive: true });
   window.addEventListener('touchmove', handleGlobalTouchMove, { passive: true });
+  document.addEventListener('pointerup', handleGlobalPointerUp, { passive: true });
+  document.addEventListener('touchend', handleGlobalPointerUp, { passive: true });
 
   window.addEventListener('resize', onWindowResize);
   window.addEventListener('scroll', onWindowScroll, { passive: true });
@@ -407,6 +428,8 @@ onUnmounted(() => {
   document.removeEventListener('pointerdown', handleGlobalPointerDown);
   window.removeEventListener('pointermove', handleGlobalPointerMove as any);
   window.removeEventListener('touchmove', handleGlobalTouchMove as any);
+  document.removeEventListener('pointerup', handleGlobalPointerUp as any);
+  document.removeEventListener('touchend', handleGlobalPointerUp as any);
 
   window.removeEventListener('resize', onWindowResize);
   window.removeEventListener('scroll', onWindowScroll);
