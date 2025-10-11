@@ -2,8 +2,8 @@
   <section class="p-2 space-y-6">
     <div
       v-for="vitrine in superVitrines"
-      :key="vitrine.id"
-    >
+      :key="vitrine.id">
+      
       <h2 class="text-2xl font-bold text-[#d56aa0] mb-4">
         {{ vitrine.nome }}
       </h2>

@@ -472,14 +472,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineExpose, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, defineExpose, watch, onMounted, nextTick, onBeforeUnmount  } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSacolaStore } from '@/stores/useSacolaStore'
 import { atualizarEstoqueSacola, buscarProdutoPorTicketPai, criarPedidoStrapi, mapEntregaToEnum, mapPagamentoToEnum } from '@/services/strapi'
 
+
 /* ------------------- STORE E ESTADO BASE ------------------- */
 const sacola = useSacolaStore()
 const isOpen = ref<boolean>(false)
+
+// controla abertura automática com debounce (evita múltiplos rapid-fire)
+let abrirTimeout: ReturnType<typeof setTimeout> | null = null
+
+
 const clienteNome = ref<string>('')
 
 /* router para redirecionar para a view de brindes */
@@ -639,6 +645,27 @@ const mensagemAviso = computed<string>(() => {
   return ''
 })
 
+
+// WATCHERS
+
+
+
+// marca brindeLiberado somente quando há efetivamente um item de preço zero na sacola
+watch(
+  () => sacola.itens.map((it: any) => Number(it.preco)), // depende da forma como sua store expõe itens
+  (listaPrecos) => {
+    const temBrinde = listaPrecos.some(p => Number(p) === 0)
+    brindeLiberado.value = temBrinde
+    // opcional: aviso se necessário
+    if (!temBrinde) {
+      avisoExtra.value = '' // limpa aviso extra se existir
+    }
+  },
+  { immediate: true, deep: true }
+)
+
+
+
 /* ------------------- WATCHES / NORMALIZAÇÃO NOME ------------------- */
 function capitalize(raw = '') {
   if (!raw) return ''
@@ -734,11 +761,40 @@ watch(politicaChecked, (v: boolean) => {
 })
 
 /* opcional: se a sacola ficar vazia, também garantimos resetar brindeLiberado */
-watch(() => sacola.itens.length, (len: number) => {
-  if (len === 0) {
-    brindeLiberado.value = false
+watch(
+  () => sacola.itens.length,
+  (len: number, oldLen: number | undefined) => {
+    // se ficou vazio, resetamos brindeLiberado (comportamento já existente)
+    if (len === 0) {
+      brindeLiberado.value = false
+    }
+
+    // abrir automaticamente somente quando houve um aumento no número de itens
+    // (protege contra inicialização ou substituições)
+    if (typeof oldLen !== 'undefined' && len > oldLen) {
+      // limpa timeout anterior se houver
+      if (abrirTimeout) {
+        clearTimeout(abrirTimeout)
+        abrirTimeout = null
+      }
+      // delay pequeno para dar tempo de updates/animations; ajuste se quiser
+      abrirTimeout = setTimeout(() => {
+        abrirSacola()
+        abrirTimeout = null
+      }, 120) // 120ms — ajuste entre 0~300ms conforme preferir
+    }
   }
+)
+
+
+
+
+
+// limpar timeout ao desmontar
+onBeforeUnmount(() => {
+  if (abrirTimeout) clearTimeout(abrirTimeout)
 })
+
 
 /* ------------------- FUNÇÕES UTILITÁRIAS ------------------- */
 function textoEntrega(valor: string | null): string {
@@ -853,44 +909,49 @@ function onMeuBrindeClick() {
   removerProdutosPrecoZero()
 
   // fecha a sacola e direciona para a prateleira de brindes apropriada
-  // e marca brindeLiberado para que o botão Finalizar seja mostrado (quando aplicável)
-  const prateleiraId = total.value >= 60 ? 28 : 5
-  brindeLiberado.value = true
+  const prateleiraId = total.value >= 60 ? 194 : 191
+  // não marcamos brindeLiberado aqui — só quando efetivamente houver um item de preço 0 na sacola
   fecharSacola()
-  // redirecionamento para a página de brindes (trocamos daqui do "Finalizar" para cá)
   router.push({ name: 'brindes', params: { id: String(prateleiraId) } })
 }
+
+
+
 
 /* ------------------- FINALIZAR PEDIDO ------------------- */
 async function enviarPedidoParaWhatsApp() {
   if (!podeFinalizar.value) return
 
-  // 1) Atualização de estoque (mantido)
-  const estoquePayload = sacola.itens.map((item: any) => {
-    if (item.selectedVariante?.ticket) {
-      return {
-        ticketPai: item.ticketPai,
-        ticket: item.selectedVariante.ticket,
-        quantidade: item.selectedVariante.estoqueVariante - item.quantidadeSelecionada,
+  // Abre uma aba em branco antes dos awaits para evitar bloqueio de pop-up
+  const previewWin = window.open('', '_blank')
+
+  try {
+    // (1) Atualiza estoque - mantém sua lógica
+    const estoquePayload = sacola.itens.map((item: any) => {
+      if (item.selectedVariante?.ticket) {
+        return {
+          ticketPai: item.ticketPai,
+          ticket: item.selectedVariante.ticket,
+          quantidade: item.selectedVariante.estoqueVariante - item.quantidadeSelecionada,
+        }
+      } else {
+        return {
+          ticketPai: item.ticketPai,
+          quantidade: item.estoqueUnico - item.quantidadeSelecionada,
+        }
       }
-    } else {
-      return {
-        ticketPai: item.ticketPai,
-        quantidade: item.estoqueUnico - item.quantidadeSelecionada,
-      }
+    })
+
+    try {
+      await atualizarEstoqueSacola(estoquePayload)
+    } catch (err) {
+      console.error('Erro ao atualizar estoque (Strapi):', err)
+      alert('Ocorreu um erro ao atualizar o estoque. Tente novamente.')
+      if (previewWin && !previewWin.closed) previewWin.close()
+      return
     }
-  })
 
-  try {
-    await atualizarEstoqueSacola(estoquePayload)
-  } catch (err) {
-    console.error('Erro ao atualizar estoque (Strapi):', err)
-    alert('Ocorreu um erro ao atualizar o estoque. Tente novamente.')
-    return
-  }
-
-  // 2) Montar itens_sacola para o Strapi (buscar id do produto pela relação)
-  try {
+    // (2) Monta itens_sacola
     const itensSacola = await Promise.all(
       sacola.itens.map(async (item: any) => {
         const produto = await buscarProdutoPorTicketPai(item.ticketPai)
@@ -901,8 +962,8 @@ async function enviarPedidoParaWhatsApp() {
 
         const base: any = {
           quantidade: Number(item.quantidadeSelecionada),
-          preco: Number((item.preco * item.quantidadeSelecionada).toFixed(2)), // total do item
-          ticketPai: Number(item.ticketPai)
+          preco: Number((item.preco * item.quantidadeSelecionada).toFixed(2)),
+          ticketPai: Number(item.ticketPai),
         }
         if (item.selectedVariante?.ticket) {
           base.ticket = Number(item.selectedVariante.ticket)
@@ -911,46 +972,128 @@ async function enviarPedidoParaWhatsApp() {
       })
     )
 
-    // 3) Mapeamentos de enum (front -> Strapi)
+    // (3) Enums de entrega/pagamento
     const entregaEnum = mapEntregaToEnum(opcaoEntrega.value)
     const pagamentoEnum = mapPagamentoToEnum(opcaoPagamento.value)
 
-    // 4) Criar pedido no Strapi
+    // (4) Cria pedido no Strapi
     const payload: any = {
-  primeiroNome: clienteNome.value,
-  andamento: 'pendente',
-  entrega: entregaEnum,
-  pagamento: pagamentoEnum,
-  itens_sacola: itensSacola,
-}
-
-    // Enviar apenas um dos dois
+      primeiroNome: clienteNome.value,
+      andamento: 'pendente',
+      entrega: entregaEnum,
+      pagamento: pagamentoEnum,
+      itens_sacola: itensSacola,
+    }
     if (frete.value > 0) {
       payload.comFrete = Number(total.value.toFixed(2))
     } else {
       payload.semFrete = Number(subtotal.value.toFixed(2))
     }
 
-    await criarPedidoStrapi(payload)
+    const pedidoCriado = await criarPedidoStrapi(payload)
 
-    // 5) Limpar sacola após pedido criado com sucesso.
+    // Extrai código único (resiliente a formatos Strapi)
+    const extrairCodigoUnico = (res: any) => {
+      if (!res) return null
+      if (res.data?.attributes?.codigo_unico) return res.data.attributes.codigo_unico
+      if (res?.codigo_unico) return res.codigo_unico
+      if (res?.data?.codigo_unico) return res.data.codigo_unico
+      if (res?.attributes?.codigo_unico) return res.attributes.codigo_unico
+      if (res?.data?.id) return String(res.data.id)
+      if (res?.id) return String(res.id)
+      return null
+    }
+
+    const codigoUnico = extrairCodigoUnico(pedidoCriado) || 'sem-codigo'
+    const primeiroNome = (clienteNome.value || '').trim().split(' ')[0] || 'Cliente'
+
+    // =========================
+    // COPIAR PRO CLIPBOARD
+    // =========================
+    const copyToClipboard = async (text: string): Promise<boolean> => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text)
+          return true
+        } else {
+          // fallback antigo
+          const ta = document.createElement('textarea')
+          ta.value = text
+          // evita scroll jump
+          ta.style.position = 'fixed'
+          ta.style.left = '-9999px'
+          document.body.appendChild(ta)
+          ta.focus()
+          ta.select()
+          const ok = document.execCommand('copy')
+          document.body.removeChild(ta)
+          return !!ok
+        }
+      } catch (e) {
+        console.warn('Erro ao copiar para clipboard:', e)
+        return false
+      }
+    }
+
+    const copiou = await copyToClipboard(codigoUnico)
+
+    // Mostra uma mensagem curta na janela aberta para feedback (não bloqueante)
+    if (previewWin && !previewWin.closed) {
+      try {
+        previewWin.document.body.style.fontFamily = 'system-ui, Arial, sans-serif'
+        previewWin.document.body.style.padding = '16px'
+        previewWin.document.body.innerHTML = copiou
+          ? `<div style="font-size:14px">Código <strong>${codigoUnico}</strong> copiado para a área de transferência.<br>Redirecionando para o WhatsApp...</div>`
+          : `<div style="font-size:14px">Não foi possível copiar automaticamente.<br>Código: <strong>${codigoUnico}</strong><br>Redirecionando para o WhatsApp...</div>`
+      } catch (e) {
+        // se houver cross-origin later (após redirecionar) vai falhar — ignoramos
+      }
+    }
+
+    // (5) Monta a mensagem (inline code para fácil cópia manual, mas agora o código já está no clipboard)
+    const mensagem = [
+      `Oi, me chamo ${primeiroNome}! 👋`,
+      ``,
+      `Realizei um pedido com o código \`${codigoUnico}\`.`,
+      ``,
+      `Li todos os termos e regras e quero seguir com minha compra.`
+      
+    ].join('\n')
+
+    // (6) Abre WhatsApp
+    const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '5592999913621'
+    const phoneDigits = (WHATSAPP_NUMBER || '').replace(/\D/g, '')
+
+    if (phoneDigits.length < 10) {
+      alert(`Número de WhatsApp inválido: ${phoneDigits}`)
+      if (previewWin && !previewWin.closed) previewWin.close()
+      return
+    }
+
+    const waUrl = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(mensagem)}`
+    if (previewWin && !previewWin.closed) {
+      // redireciona a janela previamente criada
+      previewWin.location.href = waUrl
+    } else {
+      window.open(waUrl, '_blank')
+    }
+
+    // (7) Limpa sacola e UI
     sacola.limparSacola()
-    // limpar campos nome entrega e pagamento e fechar sacola
     resetarFormulario()
     fecharSacola()
 
-    // IMPORTANT: removido o redirecionamento para 'brindes' daqui.
-    // O redirecionamento para brindes agora acontece apenas no botão "meu brinde 🥰".
-    // Mantemos o fluxo: pedido criado -> sacola limpa. Se quiser redirecionar
-    // depois de criar o pedido, use o botão "Meu Brinde" separadamente.
-
   } catch (err) {
-    // Se qualquer erro ocorrer (busca produto, criação do pedido, etc.), 
-    // NÃO limpamos a sacola — assim o usuário pode tentar novamente.
-    console.error('Erro ao criar pedido no Strapi:', err)
-    alert('Ocorreu um erro ao criar o pedido no Strapi. Verifique o console.')
+    console.error('Erro ao criar pedido / abrir WhatsApp:', err)
+    if (previewWin && !previewWin.closed) previewWin.close()
+    alert('Ocorreu um erro ao processar seu pedido.')
   }
 }
+
+
+
+
+
 
 /* ------------------- Regras ESPECÍFICAS DE BRINDE / PREÇO ZERO ------------------- */
 
