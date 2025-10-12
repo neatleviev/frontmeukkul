@@ -1110,6 +1110,89 @@ async function enviarPedidoParaWhatsApp() {
 const prevTotal = ref<number>(total.value)
 const LIMIAR_BRINDE = 60.0
 
+
+// ---- Início: se o subtotal cair abaixo do limiar, removemos brindes VIP já presentes ----
+watch(
+  () => subtotal.value,
+  (novoSubtotal: number, velho: number | undefined) => {
+    try {
+      if (velho === undefined) return
+      // só nos interessa quando passou de >= LIMIAR_BRINDE para < LIMIAR_BRINDE
+      if (velho >= LIMIAR_BRINDE && novoSubtotal < LIMIAR_BRINDE) {
+        // encontra índices de brindes VIP (preço 0 ou prateleira 194) e remove todos
+        const toRemove: number[] = []
+        sacola.itens.forEach((item: any, idx: number) => {
+          const itemPrateleiraId = String(item.prateleiraId ?? item.prateleira_id ?? item.prateleiraIdStr ?? '')
+          const isPrecoZero = Number(item.preco) === 0
+          const isVipBrinde = itemPrateleiraId === '194' || isPrecoZero || item?.isBrinde
+          if (isVipBrinde) toRemove.push(idx)
+        })
+
+        // remove do fim pro início para preservar índices corretos
+        toRemove.sort((a, b) => b - a).forEach(i => {
+          try { sacola.removerProduto(i) } catch (err) { console.warn('Falha ao remover brinde após redução do subtotal:', err) }
+        })
+
+        if (toRemove.length > 0) {
+          avisoExtra.value = 'Brinde(s) removido(s) pois o carrinho ficou abaixo do valor mínimo.'
+          setTimeout(() => {
+            if (avisoExtra.value?.startsWith('Brinde(s) removido')) avisoExtra.value = ''
+          }, 4500)
+        }
+      }
+    } catch (e) {
+      console.warn('Proteção de brinde (redução subtotal) falhou:', e)
+    }
+  }
+)
+// ---- Fim: remoção reativa de brindes VIP quando subtotal cair ----
+
+
+
+// ---- Início: proteção contra adição de brindes VIP quando subtotal < LIMIAR_BRINDE ----
+watch(
+  () => sacola.itens.length,
+  (len: number, oldLen: number | undefined) => {
+    try {
+      // só nos interessa quando houve uma adição
+      if (oldLen === undefined || len <= oldLen) return
+
+      const lastIndex = sacola.itens.length - 1
+      if (lastIndex < 0) return
+
+      const lastItem: any = sacola.itens[lastIndex]
+
+      // Critério para identificar brinde VIP:
+      //  - está na prateleira 194 (campo prateleiraId ou similar), OU
+      //  - preço igual a zero (produto gratuito/brinde)
+      // Ajuste 'prateleiraId' se no seu objeto o campo tiver outro nome.
+      const itemPrateleiraId = String(lastItem.prateleiraId ?? lastItem.prateleira_id ?? lastItem.prateleiraIdStr ?? '')
+      const isPrecoZero = Number(lastItem.preco) === 0
+      const isVipBrinde = itemPrateleiraId === '194' || isPrecoZero || lastItem?.isBrinde
+
+      if (isVipBrinde && subtotal.value < LIMIAR_BRINDE) {
+        // remove o item recém-adicionado
+        try {
+          sacola.removerProduto(lastIndex)
+        } catch (err) {
+          console.warn('Erro ao remover brinde inválido (watch adição):', err)
+        }
+
+        // notifica o usuário via avisoExtra (já presente no seu código)
+        avisoExtra.value = `Brinde VIP bloqueado. Falta R$ ${ (LIMIAR_BRINDE - subtotal.value).toFixed(2) } no carrinho.`
+        // limpa a mensagem depois de alguns segundos
+        setTimeout(() => {
+          if (avisoExtra.value?.startsWith('Brinde VIP bloqueado')) avisoExtra.value = ''
+        }, 4500)
+      }
+    } catch (e) {
+      console.warn('Proteção de brinde (adicional) falhou:', e)
+    }
+  }
+)
+// ---- Fim: proteção contra adição de brindes VIP quando subtotal < LIMIAR_BRINDE ----
+
+
 function removerProdutosPrecoZero() {
   // removemos todos os itens com item.preco === 0
   const indices: number[] = []
