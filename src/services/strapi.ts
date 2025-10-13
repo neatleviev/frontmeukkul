@@ -42,7 +42,7 @@ export async function atualizarEstoqueSacola(payload: {
  * ============================================================ */
 export async function buscarProdutoPorTicketPai(ticketPai: number) {
   const res = await fetch(
-    `${STRAPI_API_URL}/produtos?filters[ticketPai][$eq]=${ticketPai}&fields[0]=documentId&populate=variantes`,
+     `${STRAPI_API_URL}/produtos?filters[ticketPai][$eq]=${ticketPai}&populate=*`,
     {
       headers: {
         Authorization: `Bearer ${ADMIN_TOKEN}`,
