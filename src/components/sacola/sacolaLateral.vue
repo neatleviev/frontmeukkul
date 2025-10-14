@@ -132,43 +132,58 @@
     <div class="p-4 space-y-4 overflow-y-auto flex-1">
       <!-- OVERLAY DE ENTREGA -->
       <section v-if="exibindoEntrega" class="w-full">
-        <header class="mb-3">
-          <h3 class="text-lg font-semibold flex items-center gap-2">
-            <span class="inline-block bg-red-500 text-white rounded px-2 py-0.5">ATENÇÃO</span>
-            Confirmação do modo de entrega
-          </h3>
-        </header>
-
-        <div class="mb-3 border-b pb-3">
-          <p class="text-base leading-relaxed font-medium">
-            Você selecionou: <strong>{{ textoEntrega(entregaPendente) }}</strong>.
-          </p>
-        </div>
+               
 
         <div class="mb-3 border-b pb-3" v-if="entregaPendente === 'retirada'">
-          <p class="text-base leading-relaxed">
-            Ao confirmar, sua compra será preparada para <strong>retirada no Meukkul</strong>. 
-            Certifique-se de que seu nome esteja correto e esteja ciente de que <strong>não há entrega</strong> neste modo.
-          </p>
+          <p style="text-align: center; font-weight: 500; line-height: 1.6;">
+  <strong style="font-size: 1.3em;">Retirada no Meukkul</strong><br><br>
+  Nesse modo de entrega, você vem até a nossa <strong>localização</strong> 
+  para realizar a retirada do seu pedido. 
+  O endereço pode ser consultado diretamente com nossa atendente pelo WhatsApp 
+  após a finalização da sua compra.<br><br>
+  Nossos horários de retirada são das <strong>14h30 às 22h00</strong>.
+</p>
+
+
+
+
         </div>
 
         <div class="mb-3 border-b pb-3" v-else-if="entregaPendente === 'uber'">
-          <p class="text-base leading-relaxed">
-            Ao confirmar, você solicita <strong>Uber entrega no Meukkul</strong>. 
-            A taxa e o tempo são definidos pela corrida. Manteremos você informado no WhatsApp.
-          </p>
+          <p style="text-align: center; font-weight: 500; line-height: 1.6;">
+  <strong style="font-size: 1.3em;">Uber Entrega no Meukkul</strong><br><br>
+  Nesse modo de entrega, você solicita o serviço de entrega pelo aplicativo da 
+  <strong>Uber</strong> ou <strong>99 Pop</strong>.<br><br>
+  • Na descrição do item a ser entregue, adicione a informação 
+  <strong>"produto íntimo frágil"</strong> e o <strong>valor total da sua compra</strong>.<br><br>
+  • Assim que o motoboy for confirmado no aplicativo, envie para nós os 
+  <strong>detalhes do motorista</strong> (print da placa ou link de acompanhamento) 
+  para que possamos monitorar o envio.<br><br>
+  • O pagamento deve ser realizado <strong>antes de solicitar o Uber Entrega</strong> 
+  ou <strong>99 Entrega</strong>, garantindo que o processo ocorra de forma rápida e eficiente.<br><br>
+  A <strong>localização</strong> pode ser consultada diretamente com nossa atendente 
+  pelo <strong>WhatsApp</strong> após a finalização da sua compra.<br><br>
+  Nossos horários de atendimento e retirada são das <strong>14h30 às 22h00</strong>.
+</p>
+
+
+
         </div>
 
         <div class="mb-3 border-b pb-3" v-else-if="entregaPendente === 'meukkul'">
-          <p class="text-base leading-relaxed">
-            Ao confirmar, será aplicada a taxa fixa de <strong>R$ 4,00</strong> da 
-            <strong>Entrega no Meukkul</strong>. Certifique-se do endereço e disponibilidade para receber.
-          </p>
+         <p style="text-align: center; font-weight: 500; line-height: 1.6;">
+  <strong style="font-size: 1.3em;">Entrega no Meukkul por R$4,00</strong><br><br>
+  Nesse modo de entrega, contamos com um <strong>sistema de rota única</strong>, 
+  onde nosso entregador realiza as entregas pelo valor fixo de <strong>R$4,00</strong>, válido apenas para entregas <strong>dentro do território de Manaus</strong>.<br><br>
+  <strong>Atenção:</strong> aceitamos pedidos até as <strong>15h30</strong> 
+  para a montagem da rota, que tem <strong>saída do Meukkul a partir das 16h30</strong>.<br><br>
+  Nosso sistema de rota funciona de <strong>terça a sábado</strong>.
+</p>
+
+
         </div>
 
-        <div class="mb-2 text-sm text-gray-500">
-          <p>Confirme a leitura para aplicar este modo de entrega ao seu pedido.</p>
-        </div>
+        
 
         <div class="mt-4 flex items-center justify-end gap-2">
           <button
@@ -195,41 +210,55 @@
 
       <!-- OVERLAY DE PAGAMENTO -->
       <section v-else-if="exibindoPagamento" class="w-full">
-        <header class="mb-3">
-          <h3 class="text-lg font-semibold flex items-center gap-2">
-            <span class="inline-block bg-blue-500 text-white rounded px-2 py-0.5">INFO</span>
-            Confirmação da forma de pagamento
-          </h3>
-        </header>
+        
+
+        
 
         <div class="mb-3 border-b pb-3">
-          <p class="text-base leading-relaxed font-medium">
-            Você selecionou: <strong>{{ textoPagamento(pagamentoPendente) }}</strong>.
-          </p>
-        </div>
+        <p v-if="pagamentoPendente === 'pix'" style="text-align: center; font-weight: 500; line-height: 1.6;">
+  <strong style="font-size: 1.3em;">Pagamento via PIX</strong><br><br>
+  Nesse modo de pagamento, você pode realizar o pagamento no 
+  <strong>ato da entrega</strong> caso tenha escolhido as opções 
+  <strong>Entrega no Meukkul por R$4,00</strong> ou 
+  <strong>Vou retirar no Meukkul</strong>.<br><br>
+  Se você optou pelo modo <strong>Uber Entrega</strong>, 
+  o pagamento deve ser realizado <strong>de forma antecipada</strong>.
+</p>
 
-        <div class="mb-3 border-b pb-3">
-          <p v-if="pagamentoPendente === 'pix'">
-            Aceitamos Pix. Você pode pagar <strong>no ato da entrega</strong> ou <strong>antecipado via WhatsApp</strong>.
-            <span v-if="opcaoEntrega === 'uber'" class="text-red-600 font-semibold">
-              No caso de Uber entrega, o pagamento deve ser antecipado pelo WhatsApp.
-            </span>
-          </p>
 
-          <p v-else-if="pagamentoPendente === 'link'">
-            Você receberá um link de pagamento pelo WhatsApp. 
-            <span v-if="opcaoEntrega === 'uber'" class="text-red-600">Com Uber entrega, deve ser pago antecipadamente.</span>
-          </p>
 
-          <p v-else-if="pagamentoPendente === 'dinheiro'">
-            Pagamento em dinheiro vivo. Por favor, prepare o troco.
-            <span v-if="opcaoEntrega === 'uber'" class="text-red-600">Não aceito para Uber entrega — escolha Pix ou Link.</span>
+          <p v-else-if="pagamentoPendente === 'link'" style="text-align: center; font-weight: 500; line-height: 1.6;">
+            <strong style="font-size: 1.3em;">Link de pagamento</strong><br><br>
+            Nesse modo de pagamento, você receberá um link seguro. 
+            Ao acessá-lo, basta preencher os dados do seu cartão de crédito 
+            e concluir o pagamento, que pode ser parcelado em até <strong>12 vezes</strong> com acrecimo da operadora.<br><br>
+            
           </p>
 
-          <p v-else-if="pagamentoPendente === 'credito'">
-            Pagamento por cartão de crédito no ato da entrega.
-            <span v-if="opcaoEntrega === 'uber'" class="text-red-600">Não disponível para Uber entrega — escolha Pix ou Link.</span>
-          </p>
+
+<p v-else-if="pagamentoPendente === 'dinheiro'" style="text-align: center; font-weight: 500; line-height: 1.6;">
+  <strong style="font-size: 1.3em;">Dinheiro vivo</strong><br><br>
+  Nesse modo de pagamento, você realiza o pagamento em dinheiro (notas físicas). 
+  <strong>Atenção:</strong> as notas devem estar em boas condições, sem rasgos ou danos, 
+  pois precisamos depositá-las no banco e o sistema automático não aceita notas danificadas.<br><br>
+  <span v-if="opcaoEntrega === 'uber'" class="text-red-600">
+    Esse modo <strong>não pode ser escolhido</strong> se você selecionou a opção de entrega via Uber (entrega no Meukkul).
+  </span>
+</p>
+
+
+         <p v-else-if="pagamentoPendente === 'credito'" style="text-align: center; font-weight: 500; line-height: 1.6;">
+  <strong style="font-size: 1.3em;">Cartão de Crédito</strong><br><br>
+  Nesse modo de pagamento, você realiza o pagamento presencialmente, no momento da entrega, 
+  utilizando o seu cartão de crédito. 
+  <strong>Atenção:</strong> o cartão deve possuir a função de aproximação (NFC), 
+  pois utilizamos um sistema de pagamento com tecnologia embarcada em smartphones.<br><br>
+  <span v-if="opcaoEntrega === 'uber'" class="text-red-600">
+    Esse modo <strong>não pode ser escolhido</strong> se você selecionou a opção de entrega via Uber (entrega no Meukkul).
+  </span>
+</p>
+
+
 
           <p v-else class="text-gray-600">Escolha uma forma de pagamento para ver instruções específicas.</p>
         </div>
@@ -257,25 +286,21 @@
 
       <!-- ALERTA -->
       <section v-else-if="exibindoAlerta" class="w-full">
-        <header class="mb-3">
-          <h3 class="text-lg font-semibold">Atenção</h3>
-        </header>
-
+        
         <div class="mb-3 border-b pb-3">
-          <p class="text-base leading-relaxed font-medium">
-            Ao prosseguir com seu pedido na Sextbt, verifique atentamente todos os detalhes dos produtos escolhidos.
-          </p>
+          <p style="text-align: center; font-weight: 500; line-height: 1.6;">
+  <strong style="font-size: 1.3em;">Prezado cliente,</strong><br><br>
+  Ao realizar seu pedido na Sextbt, pedimos que verifique cuidadosamente todos os detalhes dos produtos escolhidos por você. 
+  Caso haja dúvidas, por favor, não hesite em questionar nossa atendente, 
+  pois temos uma política de troca e devolução. 
+  Devido a isso, você pode enfrentar burocracias administrativas para solucionar qualquer inconveniente.
+</p>
+
         </div>
 
-        <div class="mb-3 border-b pb-3">
-          <p class="text-base leading-relaxed">
-            Certifique-se de imagem, variante e quantidade — isso evita devoluções e garante sua satisfação.
-          </p>
-        </div>
+       
 
-        <div class="mb-2 text-sm text-gray-500">
-          <p>Confirme o alerta para visualizar nossa política completa.</p>
-        </div>
+      
 
         <div class="mt-4 flex items-center justify-end gap-2">
           <button
@@ -301,28 +326,25 @@
 
       <!-- POLÍTICA -->
       <section v-else-if="exibindoPolitica" class="w-full">
-        <header class="mb-3">
-          <h3 class="text-lg font-semibold flex items-center gap-2">
-            <span class="inline-block bg-red-500 text-white rounded px-2 py-0.5">ATENÇÃO</span>
-            Política de Troca & Devolução
-          </h3>
-        </header>
+        <p style="text-align: center; font-weight: 500; line-height: 1.6;">
+        <strong style="font-size: 1.3em;">Política de Troca e Devolução - Meukkul</strong><br><br>
+        A Meukkul possui uma política de troca e devolução. 
+        Ao realizar o pagamento, você concorda com os termos da política da loja.<br><br>
+        Por se tratar de produtos íntimos, prezamos pela saúde e higiene de nossos clientes. 
+        Não é possível entregar produtos que tenham sido utilizados por terceiros. 
+        Portanto, para continuarmos oferecendo a qualidade Meukkul, 
+        apenas alguns produtos são passíveis de troca e devolução.<br><br>
+        É importante ressaltar que o cliente tem o prazo de até <strong>1 dia</strong> a partir da entrega 
+        para solicitar a troca ou devolução. 
+        Além disso, o cliente fica ciente de que será necessário pagar uma taxa de <strong>R$6,00</strong> 
+        para evitar maiores prejuízos com o frete.<br><br>
+        Observem que apenas produtos que contenham <strong>lacre de segurança</strong> 
+        (ou seja, produtos com a embalagem intacta, da mesma forma em que foram entregues, 
+        e que não tenham sido violados) podem ser trocados ou devolvidos. 
+        Dessa forma, garantimos que o produto está intacto e não foi utilizado, 
+        podendo ser revendido com segurança a outra pessoa.
+      </p>
 
-        <div class="mb-3 border-b pb-3">
-          <p class="text-base leading-relaxed font-medium">Sextbt dispõe de política de troca e devolução.</p>
-        </div>
-
-        <div class="mb-3 border-b pb-3">
-          <p class="text-base leading-relaxed">
-            Ao efetuar o pagamento, você concorda com os termos da política. Conservamos o direito de recusar itens com indícios de uso ou violação do lacre.
-          </p>
-        </div>
-
-        <div class="mb-3 border-b pb-3">
-          <p class="text-base leading-relaxed">
-            Prazo para solicitação: <strong>1 dia</strong> a partir da entrega. Pode haver taxa de restituição de <strong>R$6</strong>.
-          </p>
-        </div>
 
         <div class="mt-4 flex items-center justify-end gap-2">
           <button
@@ -473,9 +495,10 @@
 
 <script setup lang="ts">
 import { ref, computed, defineExpose, watch, onMounted, nextTick, onBeforeUnmount  } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute  } from 'vue-router'
 import { useSacolaStore } from '@/stores/useSacolaStore'
 import { atualizarEstoqueSacola, buscarProdutoPorTicketPai, criarPedidoStrapi, mapEntregaToEnum, mapPagamentoToEnum } from '@/services/strapi'
+const route = useRoute()
 
 
 /* ------------------- STORE E ESTADO BASE ------------------- */
@@ -1114,37 +1137,75 @@ const LIMIAR_BRINDE = 60.0
 // ---- Início: se o subtotal cair abaixo do limiar, removemos brindes VIP já presentes ----
 watch(
   () => subtotal.value,
-  (novoSubtotal: number, velho: number | undefined) => {
+  (novoSubtotal, velhoSubtotal) => {
     try {
-      if (velho === undefined) return
-      // só nos interessa quando passou de >= LIMIAR_BRINDE para < LIMIAR_BRINDE
-      if (velho >= LIMIAR_BRINDE && novoSubtotal < LIMIAR_BRINDE) {
-        // encontra índices de brindes VIP (preço 0 ou prateleira 194) e remove todos
-        const toRemove: number[] = []
-        sacola.itens.forEach((item: any, idx: number) => {
-          const itemPrateleiraId = String(item.prateleiraId ?? item.prateleira_id ?? item.prateleiraIdStr ?? '')
-          const isPrecoZero = Number(item.preco) === 0
-          const isVipBrinde = itemPrateleiraId === '194' || isPrecoZero || item?.isBrinde
-          if (isVipBrinde) toRemove.push(idx)
-        })
+      // Só reage quando o subtotal diminui
+      if (novoSubtotal >= velhoSubtotal) return
 
-        // remove do fim pro início para preservar índices corretos
-        toRemove.sort((a, b) => b - a).forEach(i => {
-          try { sacola.removerProduto(i) } catch (err) { console.warn('Falha ao remover brinde após redução do subtotal:', err) }
-        })
+      // ------------------------------------------------------------------
+      // Listas de prateleiras
+      // ------------------------------------------------------------------
+      const prateleirasVIP = ['194']
+      const prateleirasPermitidasParaBrindeGratis = ['191']
 
-        if (toRemove.length > 0) {
-          avisoExtra.value = 'Brinde(s) removido(s) pois o carrinho ficou abaixo do valor mínimo.'
-          setTimeout(() => {
-            if (avisoExtra.value?.startsWith('Brinde(s) removido')) avisoExtra.value = ''
-          }, 4500)
+      // Função utilitária para extrair ID de prateleira de formas variadas
+      function extractPrateleiraIdFrom(item: any) {
+        return String(
+          item?.prateleiraId ??
+          item?.prateleira_id ??
+          item?.prateleiraIdStr ??
+          item?.prateleira?.data?.id ??
+          item?.prateleira?.id ??
+          item?.origemPrateleiraId ??
+          ''
+        )
+      }
+
+      // ------------------------------------------------------------------
+      // Identifica quais itens devem ser removidos (brindes VIP abaixo do limite)
+      // ------------------------------------------------------------------
+      const toRemove: number[] = []
+      sacola.itens.forEach((item: any, idx: number) => {
+        const rawId = extractPrateleiraIdFrom(item)
+        // Fallback pra rota atual se o item não tiver id definido
+        const prateleiraId = rawId || String(route?.params?.id ?? '')
+        const isPrecoZero = Number(item.preco) === 0
+
+        const isVipBrinde =
+          prateleirasVIP.includes(prateleiraId) ||
+          (isPrecoZero && !prateleirasPermitidasParaBrindeGratis.includes(prateleiraId)) ||
+          Boolean(item?.isBrinde)
+
+        if (isVipBrinde && novoSubtotal < LIMIAR_BRINDE) {
+          toRemove.push(idx)
         }
+      })
+
+      // ------------------------------------------------------------------
+      // Remove os itens marcados
+      // ------------------------------------------------------------------
+      if (toRemove.length > 0) {
+        // Remove de trás pra frente pra não quebrar os índices
+        for (let i = toRemove.length - 1; i >= 0; i--) {
+          const idx = toRemove[i]
+          try {
+            sacola.removerProduto(idx)
+          } catch (err) {
+            console.warn('Erro ao remover brinde VIP após subtotal cair:', err)
+          }
+        }
+
+        avisoExtra.value = `Brinde VIP removido. Subtotal abaixo do limite mínimo.`
+        setTimeout(() => {
+          if (avisoExtra.value?.startsWith('Brinde VIP removido')) avisoExtra.value = ''
+        }, 4500)
       }
     } catch (e) {
-      console.warn('Proteção de brinde (redução subtotal) falhou:', e)
+      console.warn('Falha ao verificar brindes no subtotal:', e)
     }
   }
 )
+
 // ---- Fim: remoção reativa de brindes VIP quando subtotal cair ----
 
 
@@ -1154,7 +1215,7 @@ watch(
   () => sacola.itens.length,
   (len: number, oldLen: number | undefined) => {
     try {
-      // só nos interessa quando houve uma adição
+      // Só nos interessa quando houve uma adição
       if (oldLen === undefined || len <= oldLen) return
 
       const lastIndex = sacola.itens.length - 1
@@ -1162,60 +1223,130 @@ watch(
 
       const lastItem: any = sacola.itens[lastIndex]
 
-      // Critério para identificar brinde VIP:
-      //  - está na prateleira 194 (campo prateleiraId ou similar), OU
-      //  - preço igual a zero (produto gratuito/brinde)
-      // Ajuste 'prateleiraId' se no seu objeto o campo tiver outro nome.
-      const itemPrateleiraId = String(lastItem.prateleiraId ?? lastItem.prateleira_id ?? lastItem.prateleiraIdStr ?? '')
-      const isPrecoZero = Number(lastItem.preco) === 0
-      const isVipBrinde = itemPrateleiraId === '194' || isPrecoZero || lastItem?.isBrinde
+      // ------------------------------------------------------------------
+      // Função utilitária para extrair prateleiraId em múltiplos formatos
+      // ------------------------------------------------------------------
+      function extractPrateleiraIdFrom(item: any) {
+        return String(
+          item?.prateleiraId ??
+          item?.prateleira_id ??
+          item?.prateleiraIdStr ??
+          item?.prateleira?.data?.id ??
+          item?.prateleira?.id ??
+          item?.origemPrateleiraId ??
+          ''
+        )
+      }
 
+      // ------------------------------------------------------------------
+      // Identificação da prateleira
+      // ------------------------------------------------------------------
+      const rawPrateleiraId = extractPrateleiraIdFrom(lastItem)
+      // Fallback: se o item não tiver ID de prateleira, usa o da rota atual
+      const itemPrateleiraId = rawPrateleiraId || String(route?.params?.id ?? '')
+
+      // ------------------------------------------------------------------
+      // Regras de brinde e VIP
+      // ------------------------------------------------------------------
+      const isPrecoZero = Number(lastItem.preco) === 0
+
+      // Prateleiras bloqueadas (VIP)
+      const prateleirasVIP = ['194']
+
+      // Prateleiras liberadas para brindes grátis
+      const prateleirasPermitidasParaBrindeGratis = ['191']
+
+      // Regra final: só é considerado "VIP bloqueado" se for da prateleira 194
+      // ou se for brinde gratuito fora da prateleira 191
+      const isVipBrinde =
+        prateleirasVIP.includes(itemPrateleiraId) ||
+        (isPrecoZero && !prateleirasPermitidasParaBrindeGratis.includes(itemPrateleiraId)) ||
+        Boolean(lastItem?.isBrinde)
+
+      // ------------------------------------------------------------------
+      // Se for brinde VIP e subtotal abaixo do limite → remove e notifica
+      // ------------------------------------------------------------------
       if (isVipBrinde && subtotal.value < LIMIAR_BRINDE) {
-        // remove o item recém-adicionado
         try {
           sacola.removerProduto(lastIndex)
         } catch (err) {
           console.warn('Erro ao remover brinde inválido (watch adição):', err)
         }
 
-        // notifica o usuário via avisoExtra (já presente no seu código)
-        avisoExtra.value = `Brinde VIP bloqueado. Falta R$ ${ (LIMIAR_BRINDE - subtotal.value).toFixed(2) } no carrinho.`
-        // limpa a mensagem depois de alguns segundos
+        avisoExtra.value = `Brinde VIP bloqueado. Falta R$ ${(LIMIAR_BRINDE - subtotal.value).toFixed(2)} no carrinho.`
+
         setTimeout(() => {
           if (avisoExtra.value?.startsWith('Brinde VIP bloqueado')) avisoExtra.value = ''
         }, 4500)
       }
     } catch (e) {
-      console.warn('Proteção de brinde (adicional) falhou:', e)
+      console.warn('Proteção de brinde (adição) falhou:', e)
     }
   }
 )
+
 // ---- Fim: proteção contra adição de brindes VIP quando subtotal < LIMIAR_BRINDE ----
 
 
 function removerProdutosPrecoZero() {
-  // removemos todos os itens com item.preco === 0
+  // Prateleiras liberadas para brindes grátis
+  const prateleirasPermitidasParaBrindeGratis = ['191']
+
+  // Função utilitária para extrair ID de prateleira em múltiplos formatos
+  function extractPrateleiraIdFrom(item: any) {
+    return String(
+      item?.prateleiraId ??
+      item?.prateleira_id ??
+      item?.prateleiraIdStr ??
+      item?.prateleira?.data?.id ??
+      item?.prateleira?.id ??
+      item?.origemPrateleiraId ??
+      ''
+    )
+  }
+
+  // Descobre o id atual da rota (fallback se item não tiver prateleiraId)
+  const rotaAtualId = String(route?.params?.id ?? '')
+
+  // Armazena índices dos produtos que devem ser removidos
   const indices: number[] = []
+
   sacola.itens.forEach((item: any, idx: number) => {
-    if (Number(item.preco) === 0) indices.push(idx)
+    const rawId = extractPrateleiraIdFrom(item)
+    const prId = rawId || rotaAtualId
+
+    const isPrecoZero = Number(item.preco) === 0
+    const isBrindeLiberado = prateleirasPermitidasParaBrindeGratis.includes(prId)
+
+    // Remove apenas se for preço zero e NÃO estiver numa prateleira liberada
+    if (isPrecoZero && !isBrindeLiberado) {
+      indices.push(idx)
+    }
   })
-  // remover do fim para início para preservar índices
+
+  // Remove do fim para o início para preservar índices
   indices.sort((a, b) => b - a).forEach(i => {
     try {
       sacola.removerProduto(i)
     } catch (err) {
-      // fallback: filtrar sacola diretamente no store se necessário (depende da implementação da store)
-      console.warn('Erro ao remover brinde pelo índice', i, err)
+      console.warn('Erro ao remover produto de preço zero (não permitido):', err)
     }
   })
 }
 
+
+
 function garantirUnicoBrindeEQuantidade() {
   // encontra todos os indices de itens com preco 0
-  const zeroIndices: number[] = []
-  sacola.itens.forEach((item: any, idx: number) => {
-    if (Number(item.preco) === 0) zeroIndices.push(idx)
-  })
+  const prateleirasPermitidasParaBrindeGratis = ['191']
+
+const zeroIndices: number[] = []
+sacola.itens.forEach((item: any, idx: number) => {
+  const prId = String(item.prateleiraId ?? item.prateleira_id ?? item.prateleiraIdStr ?? '')
+  // só conta como 'preço zero' para remoção/normalização se não for de prateleira liberada
+  if (Number(item.preco) === 0 && !prateleirasPermitidasParaBrindeGratis.includes(prId)) zeroIndices.push(idx)
+})
+
   if (zeroIndices.length === 0) return
 
   // garantir somente um: manter o primeiro, remover o resto
