@@ -501,6 +501,7 @@ import { atualizarEstoqueSacola, buscarProdutoPorTicketPai, criarPedidoStrapi, m
 const route = useRoute()
 
 
+
 /* ------------------- STORE E ESTADO BASE ------------------- */
 const sacola = useSacolaStore()
 const isOpen = ref<boolean>(false)
@@ -613,6 +614,12 @@ const ignorePagamentoWatcher = ref<boolean>(false)
 
 /* ------------------- NOVO FLAG: controle de liberação do botão finalizar após "meu brinde" ------------------- */
 const brindeLiberado = ref<boolean>(false)
+
+// ID destino que o botão "Escolher meu brinde" deve navegar
+// será definido automaticamente ao detectar travessias do limiar.
+// Valores possíveis: 191 (prateleira de brindes padrão) ou 194 (brinde para >=60)
+const brindeTargetId = ref<number | null>(null)
+
 
 /* ------------------- AVISO EXTRA ------------------- */
 const avisoExtra = ref<string>('') // usado para mensagens temporárias (ex: quando precisa escolher brinde novamente)
@@ -929,14 +936,23 @@ function onMeuBrindePointerDown(e: PointerEvent) {
 
 function onMeuBrindeClick() {
   // Antes de redirecionar, verifica e remove qualquer brinde existente na sacola
+  // (evita duplicates / conflito)
   removerProdutosPrecoZero()
 
-  // fecha a sacola e direciona para a prateleira de brindes apropriada
-  const prateleiraId = total.value >= 60 ? 194 : 191
-  // não marcamos brindeLiberado aqui — só quando efetivamente houver um item de preço 0 na sacola
+  // Se o fluxo anterior definiu explicitamente o destino, usa ele; senão,
+  // mantém compatibilidade com a regra original (total >= 60 => 194, else 191)
+  const prateleiraId = brindeTargetId.value ?? (total.value >= LIMIAR_BRINDE ? 194 : 191)
+
+  // fechar a sacola e direcionar para a prateleira de brindes apropriada
   fecharSacola()
-  router.push({ name: 'brindes', params: { id: String(prateleiraId) } })
+  try {
+    router.push({ name: 'brindes', params: { id: String(prateleiraId) } })
+  } catch (err) {
+    // fallback: log para debug
+    console.warn('Erro ao navegar para a prateleira de brindes:', err)
+  }
 }
+
 
 
 
@@ -1134,22 +1150,20 @@ const prevTotal = ref<number>(total.value)
 const LIMIAR_BRINDE = 60.0
 
 
-// ---- Início: se o subtotal cair abaixo do limiar, removemos brindes VIP já presentes ----
+// watcher: reagir quando o subtotal diminuir — removemos APENAS brindes explicitamente identificados
 watch(
   () => subtotal.value,
   (novoSubtotal, velhoSubtotal) => {
     try {
-      // Só reage quando o subtotal diminui
+      // Só reagir se diminuiu
       if (novoSubtotal >= velhoSubtotal) return
 
-      // ------------------------------------------------------------------
-      // Listas de prateleiras
-      // ------------------------------------------------------------------
-      const prateleirasVIP = ['194']
-      const prateleirasPermitidasParaBrindeGratis = ['191']
+      // lista de prateleiras que caracterizam brindes VIP (se aplicável)
+      const prateleirasVIP = ['194'] // mantenha/ajuste conforme sua regra de negócio
+      const prateleirasPermitidasParaBrindeGratis = ['191'] // idem
 
-      // Função utilitária para extrair ID de prateleira de formas variadas
-      function extractPrateleiraIdFrom(item: any) {
+      // utilitária
+      function extractPrateleiraIdFrom(item: any): string {
         return String(
           item?.prateleiraId ??
           item?.prateleira_id ??
@@ -1161,50 +1175,66 @@ watch(
         )
       }
 
-      // ------------------------------------------------------------------
-      // Identifica quais itens devem ser removidos (brindes VIP abaixo do limite)
-      // ------------------------------------------------------------------
+      // construir lista de índices a remover — com critérios estritos:
+      // - item.isBrinde === true  (explicitamente marcado)
+      // - OU item.preco === 0 e prateleira NÃO for permitida
       const toRemove: number[] = []
       sacola.itens.forEach((item: any, idx: number) => {
-        const rawId = extractPrateleiraIdFrom(item)
-        // Fallback pra rota atual se o item não tiver id definido
-        const prateleiraId = rawId || String(route?.params?.id ?? '')
-        const isPrecoZero = Number(item.preco) === 0
+        try {
+          const prateleiraId = extractPrateleiraIdFrom(item) || String(route?.params?.id ?? '')
+          const precoNum = Number(item?.preco ?? NaN)
+          const isPrecoZero = !Number.isNaN(precoNum) && precoNum === 0
+          const flaggedBrinde = Boolean(item?.isBrinde) === true
+          const isVipBrinde = prateleirasVIP.includes(prateleiraId)
+          const isBrindePermitido = prateleirasPermitidasParaBrindeGratis.includes(prateleiraId)
 
-        const isVipBrinde =
-          prateleirasVIP.includes(prateleiraId) ||
-          (isPrecoZero && !prateleirasPermitidasParaBrindeGratis.includes(prateleiraId)) ||
-          Boolean(item?.isBrinde)
-
-        if (isVipBrinde && novoSubtotal < LIMIAR_BRINDE) {
-          toRemove.push(idx)
+          // Regra de remoção: somente se for explicitamente marcado como brinde
+          // OU (preço 0 e NÃO estiver em prateleira permitida)
+          if (flaggedBrinde || (isPrecoZero && !isBrindePermitido) || isVipBrinde) {
+            // adicional: só remover se o subtotal atual realmente ficou abaixo do limiar
+            if (novoSubtotal < LIMIAR_BRINDE) {
+              toRemove.push(idx)
+            }
+          }
+        } catch (e) {
+          console.warn('watch(subtotal): erro ao analisar item', idx, e)
         }
       })
 
-      // ------------------------------------------------------------------
-      // Remove os itens marcados
-      // ------------------------------------------------------------------
-      if (toRemove.length > 0) {
-        // Remove de trás pra frente pra não quebrar os índices
-        for (let i = toRemove.length - 1; i >= 0; i--) {
-          const idx = toRemove[i]
-          try {
-            sacola.removerProduto(idx)
-          } catch (err) {
-            console.warn('Erro ao remover brinde VIP após subtotal cair:', err)
-          }
-        }
+      if (toRemove.length === 0) return
 
-        avisoExtra.value = `Brinde VIP removido. Subtotal abaixo do limite mínimo.`
+      // Segurança: se for tentar remover tudo, abortar e notificar em vez de apagar tudo
+      if (toRemove.length >= sacola.itens.length) {
+        console.warn('watch(subtotal): listagem de remoção cobre toda a sacola — abortando para segurança.', { toRemoveLength: toRemove.length, sacolaLength: sacola.itens.length })
+        avisoExtra.value = 'Alteração no subtotal detectada — verifique sua sacola antes de confirmar.'
         setTimeout(() => {
-          if (avisoExtra.value?.startsWith('Brinde VIP removido')) avisoExtra.value = ''
-        }, 4500)
+          if (avisoExtra.value?.startsWith('Alteração no subtotal detectada')) avisoExtra.value = ''
+        }, 5000)
+        return
       }
-    } catch (e) {
-      console.warn('Falha ao verificar brindes no subtotal:', e)
+
+      // remover do fim para o início para preservar índices
+      toRemove.sort((a,b) => b - a).forEach(idx => {
+        try {
+          sacola.removerProduto(idx)
+        } catch (err) {
+          console.warn('Erro ao remover produto na posição', idx, err)
+        }
+      })
+
+      // atualiza estado visual
+      brindeLiberado.value = false
+      avisoExtra.value = 'Brinde removido — subtotal abaixo de R$60.'
+      setTimeout(() => {
+        if (avisoExtra.value === 'Brinde removido — subtotal abaixo de R$60.') avisoExtra.value = ''
+      }, 3500)
+    } catch (err) {
+      console.error('Erro no watcher de subtotal (refatorado):', err)
     }
   }
 )
+
+
 
 // ---- Fim: remoção reativa de brindes VIP quando subtotal cair ----
 
@@ -1287,12 +1317,11 @@ watch(
 
 // ---- Fim: proteção contra adição de brindes VIP quando subtotal < LIMIAR_BRINDE ----
 
-
 function removerProdutosPrecoZero() {
-  // Prateleiras liberadas para brindes grátis
+  // Prateleiras onde brindes grátis são permitidos (não removemos itens nessas prateleiras)
   const prateleirasPermitidasParaBrindeGratis = ['191']
 
-  // Função utilitária para extrair ID de prateleira em múltiplos formatos
+  // Função utilitária: extrai id da prateleira do item (tenta vários campos)
   function extractPrateleiraIdFrom(item: any) {
     return String(
       item?.prateleiraId ??
@@ -1305,27 +1334,55 @@ function removerProdutosPrecoZero() {
     )
   }
 
-  // Descobre o id atual da rota (fallback se item não tiver prateleiraId)
+  // id da rota atual (fallback)
   const rotaAtualId = String(route?.params?.id ?? '')
 
-  // Armazena índices dos produtos que devem ser removidos
+  // índices que serão removidos (armazenar primeiro, remover depois)
   const indices: number[] = []
 
   sacola.itens.forEach((item: any, idx: number) => {
-    const rawId = extractPrateleiraIdFrom(item)
-    const prId = rawId || rotaAtualId
+    try {
+      const rawId = extractPrateleiraIdFrom(item)
+      const prId = rawId || rotaAtualId || ''
 
-    const isPrecoZero = Number(item.preco) === 0
-    const isBrindeLiberado = prateleirasPermitidasParaBrindeGratis.includes(prId)
+      // parse seguro do preço
+      const precoNum = Number(item?.preco ?? NaN)
+      const isPrecoZero = !Number.isNaN(precoNum) && precoNum === 0
 
-    // Remove apenas se for preço zero e NÃO estiver numa prateleira liberada
-    if (isPrecoZero && !isBrindeLiberado) {
-      indices.push(idx)
+      // identificação ESTRITA de brinde:
+      // - preferimos flag explícita item.isBrinde === true
+      // - ou ainda: preço === 0 e prateleira NÃO é permitida para brinde grátis
+      const flaggedBrinde = Boolean(item?.isBrinde) === true
+      const isBrindePermitido = prateleirasPermitidasParaBrindeGratis.includes(prId)
+
+      if (flaggedBrinde || (isPrecoZero && !isBrindePermitido)) {
+        indices.push(idx)
+      }
+    } catch (e) {
+      console.warn('removerProdutosPrecoZero: erro ao analisar item na posição', idx, e)
     }
   })
 
-  // Remove do fim para o início para preservar índices
-  indices.sort((a, b) => b - a).forEach(i => {
+  if (indices.length === 0) return
+
+  // Segurança adicional: se por algum motivo os índices para remoção
+  // corresponderem a praticamente toda a sacola (ex.: mesmo tamanho),
+  // abortamos para evitar remoção acidental total e logamos para investigar.
+  if (indices.length >= sacola.itens.length) {
+    console.warn('removerProdutosPrecoZero: tentativa de remover toda a sacola detectada — abortando para segurança.', {
+      sacolaCount: sacola.itens.length,
+      indices
+    })
+    // notificar o usuário de forma leve (não apagar tudo automaticamente)
+    avisoExtra.value = 'Detectado possível conflito ao remover brindes — verifique sua sacola.'
+    setTimeout(() => {
+      if (avisoExtra.value?.startsWith('Detectado possível conflito')) avisoExtra.value = ''
+    }, 5000)
+    return
+  }
+
+  // Remover do fim para o início (preserva índices)
+  indices.sort((a,b) => b - a).forEach(i => {
     try {
       sacola.removerProduto(i)
     } catch (err) {
@@ -1333,6 +1390,7 @@ function removerProdutosPrecoZero() {
     }
   })
 }
+
 
 
 
@@ -1369,52 +1427,93 @@ sacola.itens.forEach((item: any, idx: number) => {
   }
 }
 
-/* detecta transição de <60 para >=60 e vice-versa usando apenas total */
+/* detecta transição de <LIMIAR para >=LIMIAR e vice-versa usando apenas total
+   Comportamento desejado:
+   - < 60 -> >= 60: NÃO redirecionar automaticamente; abrir sacola, exibir mensagem,
+                   mostrar botão "Escolher meu brinde" e setar brindeTargetId = 194
+   - >= 60 -> < 60: NÃO redirecionar automaticamente; remover brindes inválidos,
+                   mostrar botão "Escolher meu brinde" e setar brindeTargetId = 191
+*/
 function checarTransicaoLimiar(prev: number, atual: number) {
   const antesMenor = prev < LIMIAR_BRINDE
   const agoraMaiorOuIgual = atual >= LIMIAR_BRINDE
   const antesMaiorOuIgual = prev >= LIMIAR_BRINDE
   const agoraMenor = atual < LIMIAR_BRINDE
 
-  // se atravessou o limiar em qualquer direção, removemos brinde(s) de preco 0
-  if ((antesMenor && agoraMaiorOuIgual) || (antesMaiorOuIgual && agoraMenor)) {
-    // somente agir se houver brinde(s) de preco 0 na sacola
-    const temBrinde = sacola.itens.some((it: any) => Number(it.preco) === 0)
-    if (temBrinde) {
-      removerProdutosPrecoZero()
-      // disponibilizar a div de direcionamento para brinde: brindeLiberado = false
-      brindeLiberado.value = false
-    }
+  // Travessia: < LIMIAR -> >= LIMIAR
+  if (antesMenor && agoraMaiorOuIgual) {
+    // NÃO redirecionar automaticamente.
+    // Mostrar botão "Escolher meu brinde" (ou seja: garantir que não há brinde já adicionado)
+    brindeLiberado.value = false
+    // definimos o id alvo para quando o usuário clicar no botão
+    brindeTargetId.value = 194
+
+    // abrir sacola para o usuário ver necessidade de escolher o brinde
+    abrirSacola()
+
+    // Mensagem leve (opcional) para o usuário
+    avisoExtra.value = 'Você atingiu o valor para escolher um brinde — abra a sacola e clique em "Escolher meu brinde".'
+    setTimeout(() => {
+      if (avisoExtra.value?.startsWith('Você atingiu o valor para escolher um brinde')) avisoExtra.value = ''
+    }, 4500)
+
+    return
   }
+
+  // Travessia: >= LIMIAR -> < LIMIAR
+  if (antesMaiorOuIgual && agoraMenor) {
+    try {
+      // Remove possíveis brindes (preço === 0) que não são permitidos após cair do limiar
+      const temBrinde = sacola.itens.some((it: any) => Number(it.preco) === 0)
+      if (temBrinde) {
+        removerProdutosPrecoZero()
+      }
+    } catch (e) {
+      console.warn('Falha ao tentar remover brindes após subtotal cair:', e)
+    }
+
+    // NÃO redirecionar automaticamente — apenas exibir o botão para que o usuário
+    // opte por voltar à prateleira de brindes.
+    brindeLiberado.value = false
+    brindeTargetId.value = 191
+
+    // Opcional: notificar usuário de forma breve
+    avisoExtra.value = `Seu subtotal ficou abaixo de R$ ${LIMIAR_BRINDE.toFixed(2)}. Se desejar escolher outro brinde, abra a sacola.`
+    setTimeout(() => {
+      if (avisoExtra.value?.startsWith('Seu subtotal ficou abaixo')) avisoExtra.value = ''
+    }, 4500)
+
+    return
+  }
+
+  // para qualquer outro caso (sem travessia), não fazemos nada especial aqui
 }
+
+
+
 
 /* watchers adicionais para garantir regra do único brinde e transição do limiar (apenas total) */
 watch(() => sacola.itens.map(i => ({ preco: Number(i.preco), quantidade: i.quantidadeSelecionada })), () => {
   // garantir apenas 1 produto gratis e quantidade = 1
   garantirUnicoBrindeEQuantidade()
 }, { deep: true })
+// WATCH TOTAL
+watch(
+  () => total.value,
+  (novo) => {
+    // checa apenas travessia do limiar; qualquer outra alteração que não cruze o LIMIAR
+    // não deve disparar redirects automáticos.
+    try {
+      checarTransicaoLimiar(prevTotal.value, novo)
+    } catch (err) {
+      console.error('Erro em checarTransicaoLimiar:', err)
+    }
 
-watch(total, (novo) => {
-  // 1) checar transição do limiar usando prevTotal
-  checarTransicaoLimiar(prevTotal.value, novo)
-
-  // 2) se o usuário já havia clicado em "Meu Brinde" (brindeLiberado == true)
-  //    e o total aumentou (novo > prevTotal), então assumimos que ele adicionou
-  //    um produto com valor (>0) ou houve aumento no total e precisamos
-  //    disponibilizar novamente a div "Escolhe meu brinde". 
-  if (brindeLiberado.value && novo > prevTotal.value) {
-    brindeLiberado.value = false
-    avisoExtra.value = 'Você adicionou um item que alterou o valor total. Clique em "Escolhe meu brinde 🥰" novamente para selecionar seu brinde.'
-    // limpar avisoExtra após alguns segundos
-    setTimeout(() => {
-      // apenas limpar se for o mesmo aviso (evita remoção concorrente)
-      if (avisoExtra.value?.startsWith('Você adicionou um item')) avisoExtra.value = ''
-    }, 6000)
+    // atualizar prevTotal ao final
+    prevTotal.value = novo
   }
+)
 
-  // atualizar prevTotal ao final
-  prevTotal.value = novo
-})
 
 /* ------------------- Função custom: removerProdutoCustom ------------------- */
 /* substitui as chamadas diretas a sacola.removerProduto(index) para garantir
@@ -1422,22 +1521,27 @@ watch(total, (novo) => {
    volte a ficar disponível (brindeLiberado = false). */
 function removerProdutoCustom(index: number, item: any) {
   try {
-    sacola.removerProduto(index)
+    // Se houver mais de uma unidade do item, apenas decrementamos a quantidade
+    if (item && typeof item.quantidadeSelecionada === 'number' && item.quantidadeSelecionada > 1) {
+      item.quantidadeSelecionada = Math.max(0, item.quantidadeSelecionada - 1)
+    } else {
+      // Caso contrário removemos o item da sacola (comportamento antigo)
+      sacola.removerProduto(index)
+    }
   } catch (err) {
     console.warn('Erro ao remover produto via removerProdutoCustom:', err)
-    // fallback silencioso; a store pode ter outra API — manter comportamento não-bloqueante
   }
 
-  // se o item removido era um brinde (preço === 0), liberar a opção de escolher brinde novamente
+  // Se o item removido/alterado era um brinde (preço === 0), garantir que o botão fique disponível
   try {
     if (Number(item?.preco) === 0) {
       brindeLiberado.value = false
     }
   } catch (e) {
-    // segurança: não deixar erros interromper o fluxo
     console.warn('Erro ao verificar preço do item removido', e)
   }
 }
+
 
 // limpar campos nome entrega pagamento
 function resetarFormulario() {
