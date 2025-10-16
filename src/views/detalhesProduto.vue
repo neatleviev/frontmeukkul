@@ -329,11 +329,43 @@ const inputBloqueado = computed(() => {
 })
 const minPermitido = computed(() => (estoqueDisponivel.value <= 0 ? 0 : 1))
 
-/* ====== FORMATA VARIANTE ====== */
+
+// 🧩 Função utilitária para montar campos não vazios
+function joinCamposNaoVazios(...campos: Array<string | null | undefined>): string {
+  return campos
+    .map(c => (typeof c === 'string' ? c.trim() : ''))
+    .filter(Boolean)
+    .join(' | ')
+}
+
+// 🧩 Substituir a função antiga por esta versão
 function formatarVariante(v: any): string {
   if (!v) return ''
-  return `${v.tamanho || ''} | ${v.cor || ''} | ${v.aroma || ''} | ${v.funcao || ''} - Estoque: ${v.estoqueVariante}`
+
+  // Suportar variações de nome do campo "time"
+  const timeVal =
+    (typeof v.time === 'string' && v.time) ||
+    (typeof v.times === 'string' && v.times) ||
+    (typeof v.team === 'string' && v.team) ||
+    ''
+
+  const tamanho = (v.tamanho ?? '') as string
+  const cor = (v.cor ?? '') as string
+  const aroma = (v.aroma ?? '') as string
+  const funcao = (v.funcao ?? '') as string
+
+  const parteInfo = joinCamposNaoVazios(tamanho, cor, aroma, funcao, timeVal)
+
+  const estoque = (v.estoqueVariante ?? v.estoque ?? v.stock ?? 0)
+  const estoqueStr = Number(estoque) || Number(estoque) === 0 ? String(estoque) : ''
+
+  if (parteInfo) {
+    return `${parteInfo} - Estoque: ${estoqueStr}`
+  }
+
+  return `Estoque: ${estoqueStr}`
 }
+
 
 /* ====== CONTROLES DE QUANTIDADE ====== */
 function onFocusInput(e: FocusEvent) {
