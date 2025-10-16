@@ -73,38 +73,38 @@
         </p>
 
         <!-- Variações -->
-        <div v-if="product.variantes && product.variantes.length > 0"
-             class="relative w-full max-w-xs dropdown-container"
-             @mouseenter="openDropdown"
-             @mouseleave="scheduleClose">
-          <label class="block mb-1 font-medium">Escolha uma variação:</label>
+        <!-- === INÍCIO: Substituir bloco "Variações" existente por este === -->
+<div v-if="product.variantes && product.variantes.length > 0" class="w-full max-w-xs">
+  <label class="block mb-1 font-medium">Escolha as opções:</label>
 
-          <!-- Botão -->
-          <button
-            class="w-full border rounded-xl px-3 py-2 text-sm bg-white hover:bg-gray-50 flex justify-between items-center"
-            @click.stop="isTouchDevice ? (dropdownOpen = !dropdownOpen) : null"
-          >
-            <span>{{ selectedVariante ? formatarVariante(selectedVariante) : 'Selecione uma variação' }}</span>
-            <span class="ml-2">▾</span>
-          </button>
+  <!-- Para cada chave de opção (ex: time, aroma, tamanho) criamos um select -->
+  <div v-for="(key, idx) in optionKeys" :key="key" class="mb-3">
+    <label class="block text-xs text-gray-600 mb-1 capitalize">{{ key }}:</label>
+    <select
+      v-model="selectedOptions[key]"
+      class="w-full border rounded-xl px-3 py-2 text-sm bg-white"
+      @change="onOptionChange"
+    >
+      <option :value="null">— Selecione {{ key }} —</option>
+      <option v-for="val in optionValues(key)" :key="val" :value="val">
+        {{ val }}
+      </option>
+    </select>
+  </div>
 
-          <!-- pequena zona invisível para ajudar a travessia (opcional) -->
-          <div v-if="dropdownOpen"
-               class="absolute left-0 bottom-full w-full h-2"
-               @mouseenter="cancelClose"></div>
+  <!-- Indicador da variante encontrada / não encontrada -->
+  <div class="mt-2 text-sm">
+    <template v-if="resolvedVariant">
+      <div class="font-medium">Combinação encontrada:</div>
+      <div class="text-gray-700">{{ formatarVariante(resolvedVariant) }}</div>
+    </template>
+    <template v-else>
+      <div class="text-red-500">Nenhuma variante corresponde à combinação selecionada.</div>
+    </template>
+  </div>
+</div>
+<!-- === FIM: Substituir bloco "Variações" === -->
 
-          <!-- Dropdown ABRE PARA CIMA -->
-          <div v-if="dropdownOpen"
-               class="absolute left-0 bottom-full mb-0.5 w-full border rounded-xl bg-white shadow-lg z-50 max-h-48 overflow-y-auto"
-               @mouseenter="cancelClose"
-               @mouseleave="scheduleClose">
-            <div v-for="(v, i) in product.variantes" :key="i"
-                 class="px-2 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                 @click.stop="selectedVariante = v; dropdownOpen = false">
-              {{ formatarVariante(v) }}
-            </div>
-          </div>
-        </div>
 
         <!-- Quantidade -->
         <div class="flex items-center gap-3">
@@ -189,7 +189,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onBeforeUnmount, computed } from 'vue'
+import { ref, onMounted, watch, onBeforeUnmount, computed,reactive } from 'vue'
 import { useProdutoStore } from '@/stores/useProdutoStore'
 import { useSacolaStore } from '@/stores/useSacolaStore'
 import BotaoVoltar from '@/components/BotaoVoltar.vue'
@@ -217,6 +217,101 @@ const closeTimer = ref<number | null>(null)
 const OPEN_CLOSE_DELAY = 120
 
 let imageInterval: any = null
+
+
+/** Reatividade das opções selecionadas: { time: 'flamengo', aroma: 'chocolate', ... } */
+const selectedOptions = reactive<Record<string, string | null>>({})
+
+/** Variant resolved: encontrada a variante que bate com as opções selecionadas */
+const resolvedVariant = ref<any | null>(null)
+
+/** Retorna chaves de opção detectadas nas variantes (ordem previsível) */
+const optionKeys = computed(() => {
+  const variantes = product?.value?.variantes ?? []
+  const keysSet = new Set<string>()
+  for (const v of variantes) {
+    // percorre todas as props e adiciona as que parecem ser atributos
+    if (v && typeof v === 'object') {
+      for (const k of Object.keys(v)) {
+        // pular campos já conhecidos que NÃO são atributos (ajuste conforme seu modelo)
+        // pular campos já conhecidos que NÃO são atributos (ajuste conforme seu modelo)
+if (['id', 'sku', 'preco', 'price', 'estoque', 'estoqueVariante', 'quantidade', 'ticket', 'ticketPai'].includes(k)) continue
+
+        // também pule campos que contenham nested objects/arrays
+        const val = v[k]
+        if (val === null) continue
+        if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+          keysSet.add(k)
+        }
+      }
+    }
+  }
+  return Array.from(keysSet)
+})
+
+/** Dado um key, retorna os valores únicos ordenados para popular o select */
+function optionValues(key: string): Array<string> {
+  const variantes = product?.value?.variantes ?? []
+  const set = new Set<string>()
+  for (const v of variantes) {
+    if (!v) continue
+    const raw = v[key]
+    if (raw === undefined || raw === null) continue
+    set.add(String(raw))
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+}
+
+/** Inicializa selectedOptions com null para todas as keys detectadas */
+function initSelectedOptions() {
+  optionKeys.value.forEach(k => {
+    // só define se não existir para não sobrescrever escolha do usuário se já houver
+    if (!(k in selectedOptions)) selectedOptions[k] = null
+  })
+}
+
+/** Retorna a variante que possui todos os pares chave:valor iguais ao selectedOptions.
+ * Se algum selectedOptions[k] for null -> ignora esse par (não exige).
+ */
+function findVariantByOptions(): any | null {
+  const variantes = product?.value?.variantes ?? []
+  // Se não houver opções selecionadas, não resolvemos automaticamente (opcional).
+  const keys = optionKeys.value
+  // Se nenhum valor foi escolhido, não resolvemos
+  const anyChosen = keys.some(k => !!selectedOptions[k])
+  if (!anyChosen) return null
+
+  for (const v of variantes) {
+    let ok = true
+    for (const k of keys) {
+      const chosen = selectedOptions[k]
+      if (chosen == null) continue // não exige
+      const variantVal = v[k]
+      // comparar strings/case-insensitive
+      if (variantVal === undefined || variantVal === null) {
+        ok = false
+        break
+      }
+      if (String(variantVal).toLowerCase() !== String(chosen).toLowerCase()) {
+        ok = false
+        break
+      }
+    }
+    if (ok) return v
+  }
+  return null
+}
+
+/** Chamado quando qualquer select muda (pode também ser usado para tracking) */
+function onOptionChange() {
+  resolvedVariant.value = findVariantByOptions()
+  // Atualiza selectedVariante global (mantendo compatibilidade com o resto do código)
+  selectedVariante.value = resolvedVariant.value  
+}
+/* === FIM: variáveis e funções a adicionar === */
+
+
+
 
 function getDescricaoLinesFromObject(obj: any): string[] {
   if (!obj) return []
@@ -506,6 +601,46 @@ const checkIsMobile = () => { isMobile.value = window.innerWidth < 768 }
 const checkAndSetDefaultQty = () => {
   quantidadeSelecionada.value = estoqueDisponivel.value > 0 ? 1 : 0
 }
+
+
+
+/* === INÍCIO: Inicialização para ligar os selects às variantes do produto === */
+watch(
+  () => product.value,
+  (novo) => {
+    if (!novo) return
+    // inicializa keys e selectedOptions
+    initSelectedOptions()
+    // se houver UMA variante padrão (por ex a primeira), opcionalmente podemos pré-selecionar seus valores:
+    // aqui não auto-selecionamos tudo para não forçar escolha do usuário; comente a parte abaixo se quiser
+    // if (Array.isArray(novo.variantes) && novo.variantes.length === 1) {
+    //   const primeira = novo.variantes[0]
+    //   for (const k of optionKeys.value) selectedOptions[k] = primeira[k] ?? null
+    //   resolvedVariant.value = primeira
+    //   selectedVariante = primeira
+    // } else {
+      // limpa seleção atual (caso mude de produto)
+      for (const k of optionKeys.value) selectedOptions[k] = null
+      resolvedVariant.value = null
+      selectedVariante.value = null
+    // }
+  },
+  { immediate: true }
+)
+
+/* Também observa mudanças nos próprios selectedOptions (reactive) — re-resolve variante. */
+watch(
+  () => optionKeys.value.map(k => selectedOptions[k]),
+  () => {
+    resolvedVariant.value = findVariantByOptions()
+    selectedVariante.value = resolvedVariant.value
+  }
+)
+/* === FIM: inicialização/watchers === */
+
+
+
+
 
 onMounted(() => {
   checkIsMobile()
