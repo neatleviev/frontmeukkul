@@ -32,6 +32,32 @@
                  class="w-1/2 h-full object-contain rounded transition-opacity duration-1000" />
           </template>
         </template>
+        <!-- INÍCIO: Badge de estoque no canto inferior direito -->
+<!--
+  Exibe o badge apenas quando:
+   - produto NÃO tem variantes (ex.: estoque único)  OR
+   - existe uma variante selecionada.
+  Assim evitamos mostrar "Indisponível" quando ninguém escolheu uma variante.
+-->
+<div
+  v-if="!(product.variantes && product.variantes.length) || selectedVariante"
+  class="absolute right-0 top-1 flex items-center space-x-2 bg-white/90 px-3 py-1 rounded-full shadow"
+  aria-live="polite"
+>
+  <span
+    class="w-3 h-3 rounded-full"
+    :class="estoqueDisponivel > 0 ? 'bg-green-500' : 'bg-red-500'"
+    aria-hidden="true"
+  ></span>
+
+  <span class="text-sm font-medium">
+    <span v-if="estoqueDisponivel > 0">{{ estoqueDisponivel }} disponível{{ estoqueDisponivel > 1 ? '' : '' }}</span>
+    <span v-else>Indisponível</span>
+  </span>
+</div>
+<!-- FIM: Badge de estoque no canto inferior direito -->
+
+
       </div>
 
       <!-- BLOCO DE DETALHES -->
@@ -147,7 +173,7 @@
     </div>
 
     <!-- Descrição abaixo do bloco pai -->
-    <div v-if="mostrarDescricao" class="mt-6 border-t border-gray-200 pt-4">
+    <div v-if="mostrarDescricao" class="mt-6 border-t border-gray-200 pt-4 p-10 ">
       <div v-if="carregandoDescricao" class="text-gray-500 text-sm">Carregando descrição...</div>
       <div v-else>
         <template v-if="product.descricaoTratada && product.descricaoTratada.length">
@@ -354,17 +380,13 @@ function formatarVariante(v: any): string {
   const aroma = (v.aroma ?? '') as string
   const funcao = (v.funcao ?? '') as string
 
+  // Monta o texto com os campos não vazios (ex.: "M | Vermelho")
   const parteInfo = joinCamposNaoVazios(tamanho, cor, aroma, funcao, timeVal)
 
-  const estoque = (v.estoqueVariante ?? v.estoque ?? v.stock ?? 0)
-  const estoqueStr = Number(estoque) || Number(estoque) === 0 ? String(estoque) : ''
-
-  if (parteInfo) {
-    return `${parteInfo} - Estoque: ${estoqueStr}`
-  }
-
-  return `Estoque: ${estoqueStr}`
+  // Se não houver informação de atributos, fornecer um fallback legível
+  return parteInfo || 'Opção'
 }
+
 
 
 /* ====== CONTROLES DE QUANTIDADE ====== */
