@@ -73,7 +73,7 @@
         </p>
 
         <!-- Variações -->
-        <!-- === INÍCIO: Substituir bloco "Variações" existente por este === -->
+        <!-- === INÍCIO: Substituir bloco "Variações" existente por este (sem mensagem de combinação) === -->
 <div v-if="product.variantes && product.variantes.length > 0" class="w-full max-w-xs">
   <label class="block mb-1 font-medium">Escolha as opções:</label>
 
@@ -92,18 +92,11 @@
     </select>
   </div>
 
-  <!-- Indicador da variante encontrada / não encontrada -->
-  <div class="mt-2 text-sm">
-    <template v-if="resolvedVariant">
-      <div class="font-medium">Combinação encontrada:</div>
-      <div class="text-gray-700">{{ formatarVariante(resolvedVariant) }}</div>
-    </template>
-    <template v-else>
-      <div class="text-red-500">Nenhuma variante corresponde à combinação selecionada.</div>
-    </template>
-  </div>
+  <!-- Mensagem de combinação removida conforme solicitado -->
 </div>
 <!-- === FIM: Substituir bloco "Variações" === -->
+
+
 
 
         <!-- Quantidade -->
@@ -149,16 +142,18 @@
           </div>
         </div>
 
-        <!-- Botão "pegar" -->
-        <button
-          @click="pegarProduto"
-          class="w-full bg-pink-500 text-stone-50 py-3 hover:scale-105 active:scale-105
-          rounded-2xl text-lg font-semibold cursor-pointer  transition duration-100 ease-in-out
-          hover:shadow-[0_0_25px_rgba(213,106,160,0.9)] active:shadow-[0_0_25px_rgba(213,106,160,0.9)]"
-          :disabled="estoqueDisponivel <= 0"
-        >
-          {{ estoqueDisponivel <= 0 ? 'Tudo adicionado' : 'Pegar' }}
-        </button>
+      <!-- Botão "pegar" -->
+<button
+  @click="pegarProduto"
+  class="w-full bg-pink-500 text-stone-50 py-3 hover:scale-105 active:scale-105
+  rounded-2xl text-lg font-semibold cursor-pointer transition duration-100 ease-in-out
+  hover:shadow-[0_0_25px_rgba(213,106,160,0.9)] active:shadow-[0_0_25px_rgba(213,106,160,0.9)]"
+  :disabled="estoqueDisponivel <= 0 || !allOptionsSelected"
+>
+  {{ buttonLabel }}
+</button>
+
+
 
         <!-- Botão Ver/Ocultar Descrição -->
         <button
@@ -248,6 +243,51 @@ if (['id', 'sku', 'preco', 'price', 'estoque', 'estoqueVariante', 'quantidade', 
   }
   return Array.from(keysSet)
 })
+
+
+/** Verifica se todas as opções (selects) foram escolhidas.
+ *  Retorna true automaticamente quando não existem keys (produto sem variantes).
+ */
+const allOptionsSelected = computed(() => {
+  // se não houver selects (produto sem variantes), não exige seleção
+  if (!optionKeys.value || optionKeys.value.length === 0) return true
+  // exige que TODOS os selects tenham valor truthy
+  return optionKeys.value.every(key => !!selectedOptions[key])
+})
+
+/** Retorna true se pelo menos UMA opção foi escolhida (usado para detectar "nada selecionado") */
+const anyOptionSelected = computed(() => {
+  if (!optionKeys.value || optionKeys.value.length === 0) return false
+  return optionKeys.value.some(key => !!selectedOptions[key])
+})
+
+
+/** Label do botão baseado nas regras pedidas:
+ * - se houver selects e nenhuma seleção -> "Nada selecionado :("
+ * - se existir seleção(s) mas estoque == 0 -> "Produto esgotado"
+ * - se existir seleção(s) incompletas -> "Selecione todas as opções"
+ * - caso tudo OK -> "Pegar"
+ * - produtos sem variantes seguem normalmente (dependem só do estoque).
+ */
+const buttonLabel = computed(() => {
+  // Há selects no produto?
+  const hasSelects = optionKeys.value && optionKeys.value.length > 0
+
+  // Caso: existem selects e nenhuma seleção foi feita
+  if (hasSelects && !anyOptionSelected.value) return 'Nada selecionado :('
+
+  // Caso: estoque indisponível (independente de selects)
+  if (estoqueDisponivel.value <= 0) return 'Produto esgotado'
+
+  // Caso: existem selects, mas nem todas selecionadas
+  if (hasSelects && !allOptionsSelected.value) return 'Selecione todas as opções'
+
+  // Caso: tudo ok
+  return 'Pegar'
+})
+
+
+
 
 /** Dado um key, retorna os valores únicos ordenados para popular o select */
 function optionValues(key: string): Array<string> {
@@ -449,6 +489,11 @@ const inputBloqueado = computed(() => {
   return estoqueDisponivel.value <= 0 || quantidadeSelecionada.value >= estoqueDisponivel.value
 })
 const minPermitido = computed(() => (estoqueDisponivel.value <= 0 ? 0 : 1))
+
+
+
+
+
 
 
 // 🧩 Função utilitária para montar campos não vazios
