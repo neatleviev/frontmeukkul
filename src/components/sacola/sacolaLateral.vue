@@ -425,8 +425,10 @@
               </p>
             </div>
 
-            <button type="button" @click="removerProdutoCustom(index, item)" class="text-red-500 text-sm cursor-pointer
-            hover:scale-105 active:scale-120">Remover</button>
+            <button type="button" @click="removerProdutoCustom(index, item)" class="text-red-500 text-sm cursor-pointer hover:scale-105 active:scale-120">
+  Remover
+</button>
+
           </div>
         </div>
       </template>
@@ -504,6 +506,35 @@ const route = useRoute()
 
 /* ------------------- STORE E ESTADO BASE ------------------- */
 const sacola = useSacolaStore()
+
+function removerProdutoCustom(index: number, item: any) {
+  try {
+    // Preferir chamar a função da store que remove o item por índice
+    if (typeof sacola.removerProduto === 'function') {
+      sacola.removerProduto(index)
+      return
+    }
+    // Fallback: remover diretamente do array (use com cautela)
+    sacola.itens.splice(index, 1)
+  } catch (err) {
+    console.warn('Erro ao remover produto via removerProdutoCustom:', err)
+    // Fallback adicional: tentar remover por id
+    try {
+      const idx = sacola.itens.findIndex((i: any) => i.id === item?.id)
+      if (idx >= 0) sacola.itens.splice(idx, 1)
+    } catch (e) { /* ignore */ }
+  }
+
+  // Se for brinde (preço === 0), liberar flag de brinde
+  try {
+    if (Number(item?.preco) === 0) {
+      brindeLiberado.value = false
+    }
+  } catch (e) { /* ignore */ }
+}
+
+
+
 const isOpen = ref<boolean>(false)
 
 // controla abertura automática com debounce (evita múltiplos rapid-fire)
@@ -1546,32 +1577,6 @@ watch(
 
 
 
-/* ------------------- Função custom: removerProdutoCustom ------------------- */
-/* substitui as chamadas diretas a sacola.removerProduto(index) para garantir
-   que, se o cliente remover um brinde (preço === 0), a div "Escolhe meu brinde"
-   volte a ficar disponível (brindeLiberado = false). */
-function removerProdutoCustom(index: number, item: any) {
-  try {
-    // Se houver mais de uma unidade do item, apenas decrementamos a quantidade
-    if (item && typeof item.quantidadeSelecionada === 'number' && item.quantidadeSelecionada > 1) {
-      item.quantidadeSelecionada = Math.max(0, item.quantidadeSelecionada - 1)
-    } else {
-      // Caso contrário removemos o item da sacola (comportamento antigo)
-      sacola.removerProduto(index)
-    }
-  } catch (err) {
-    console.warn('Erro ao remover produto via removerProdutoCustom:', err)
-  }
-
-  // Se o item removido/alterado era um brinde (preço === 0), garantir que o botão fique disponível
-  try {
-    if (Number(item?.preco) === 0) {
-      brindeLiberado.value = false
-    }
-  } catch (e) {
-    console.warn('Erro ao verificar preço do item removido', e)
-  }
-}
 
 
 // limpar campos nome entrega pagamento
