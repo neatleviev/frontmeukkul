@@ -274,7 +274,7 @@ const buttonLabel = computed(() => {
   const hasSelects = optionKeys.value && optionKeys.value.length > 0
 
   // Caso: existem selects e nenhuma seleção foi feita
-  if (hasSelects && !anyOptionSelected.value) return 'Nada selecionado :('
+  if (hasSelects && !anyOptionSelected.value) return 'Nada selecionado 😢'
 
   // Caso: estoque indisponível (independente de selects)
   if (estoqueDisponivel.value <= 0) return 'Produto esgotado'
@@ -596,11 +596,23 @@ watch([selectedVariante, estoqueDisponivel], () => {
 function pegarProduto() {
   const produtoClonado = JSON.parse(JSON.stringify(product.value))
   const variante = selectedVariante.value
-  const varianteLimpa = variante ? {
-    id: variante.id, tamanho: variante.tamanho, cor: variante.cor,
-    aroma: variante.aroma, funcao: variante.funcao,
-    estoqueVariante: variante.estoqueVariante, ticket: variante.ticket
-  } : null
+  const varianteLimpa = variante ? (() => {
+  const clean: Record<string, any> = {}
+  for (const k of Object.keys(variante)) {
+    const v = variante[k]
+    // copia somente valores primitivos (evita objetos/arrays complexos)
+    if (v === null) continue
+    const t = typeof v
+    if (t === 'string' || t === 'number' || t === 'boolean') {
+      clean[k] = v
+    }
+  }
+  // garantia: preserve id/ticket mesmo que sejam 0/falsy
+  if (!('id' in clean) && variante.id !== undefined) clean.id = variante.id
+  if (!('ticket' in clean) && variante.ticket !== undefined) clean.ticket = variante.ticket
+  return clean
+})() : null
+
 
   const max = estoqueDisponivel.value
   const qtdSolicitada = Math.min(Math.max(quantidadeSelecionada.value || 0, 0), max)

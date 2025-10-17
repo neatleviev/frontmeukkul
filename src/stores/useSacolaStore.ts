@@ -9,16 +9,29 @@ export const useSacolaStore = defineStore('sacola', {
 
   actions: {
     adicionarProduto(produto: any) {
-      const mesmaVariante = (a: any, b: any) => {
-        if (!a && !b) return true
-        if (!a || !b) return false
-        return (
-          a.tamanho === b.tamanho &&
-          a.cor === b.cor &&
-          a.aroma === b.aroma &&
-          a.funcao === b.funcao 
-        )
-      }
+      function stringifyNormalized(obj: any) {
+  if (!obj) return ''
+  const keys = Object.keys(obj).sort()
+  const normalized: any = {}
+  for (const k of keys) {
+    normalized[k] = obj[k]
+  }
+  return JSON.stringify(normalized)
+}
+
+const mesmaVariante = (a: any, b: any) => {
+  if (!a && !b) return true
+  if (!a || !b) return false
+
+  // use id da variante quando disponível (mais rápido e seguro)
+  if (a.id !== undefined && b.id !== undefined) {
+    return a.id === b.id
+  }
+
+  // fallback: comparação profunda normalizada
+  return stringifyNormalized(a) === stringifyNormalized(b)
+}
+
 
       const existente = this.itens.find(item =>
         item.ticketPai === produto.ticketPai &&

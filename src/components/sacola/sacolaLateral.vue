@@ -849,9 +849,20 @@ function getEstoqueDisponivel(item: any): number {
   }
   return Infinity
 }
+function joinCamposNaoVazios(...campos: Array<string | null | undefined>): string {
+  return campos
+    .map(c => (typeof c === 'string' ? c.trim() : ''))
+    .filter(Boolean)
+    .join(' | ')
+}
+
 function formatarVariante(v: any): string {
   if (!v) return ''
-  return [v.tamanho, v.cor, v.aroma, v.funcao].filter(Boolean).join(' | ')
+  const timeVal = (typeof v.time === 'string' && v.time) ||
+                  (typeof v.times === 'string' && v.times) ||
+                  (typeof v.team === 'string' && v.team) ||
+                  ''
+  return joinCamposNaoVazios(v.tamanho ?? '', v.cor ?? '', timeVal, v.aroma ?? '', v.funcao ?? '') || 'Opção'
 }
 
 function abrirSacola() { isOpen.value = true }

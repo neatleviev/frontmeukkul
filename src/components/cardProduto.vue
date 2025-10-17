@@ -173,8 +173,10 @@ const estoqueDisponivel = computed(() => {
 
 function formatarVariante(v: any): string {
   if (!v) return ''
-  return `${v.tamanho || ''} | ${v.cor || ''} | ${v.aroma || ''} | ${v.funcao || ''}`.replace(/\s\|\s(\s\|\s)*$/,'')
+  return `${v.tamanho || ''} | ${v.cor || ''} | ${v.time || v.times || v.team || ''} | ${v.aroma || ''} | ${v.funcao || ''}`
+    .replace(/\s\|\s(\s\|\s)*$/,'')
 }
+
 
 function selectVariante(variante: any) {
   selectedVariante.value = variante
@@ -238,17 +240,21 @@ function adicionarNaSacola() {
 
   const produtoClonado = JSON.parse(JSON.stringify(props.product))
   const variante = selectedVariante.value
-  const varianteLimpa = variante
-    ? {
-        id: variante.id,
-        tamanho: variante.tamanho,
-        cor: variante.cor,
-        aroma: variante.aroma,
-        funcao: variante.funcao,
-        estoqueVariante: variante.estoqueVariante,
-        ticket: variante.ticket
-      }
-    : null
+  const varianteLimpa = variante ? (() => {
+  const clean: Record<string, any> = {}
+  for (const k of Object.keys(variante)) {
+    const v = variante[k]
+    if (v === null) continue
+    const t = typeof v
+    if (t === 'string' || t === 'number' || t === 'boolean') {
+      clean[k] = v
+    }
+  }
+  if (!('id' in clean) && variante.id !== undefined) clean.id = variante.id
+  if (!('ticket' in clean) && variante.ticket !== undefined) clean.ticket = variante.ticket
+  return clean
+})() : null
+
   const produtoSacola = {
     ...produtoClonado,
     selectedVariante: varianteLimpa,

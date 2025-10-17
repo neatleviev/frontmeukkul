@@ -12,7 +12,7 @@
 
       <div class="mt-2 md:mt-0 md:grid md:grid-cols-[auto_1fr_auto] md:items-center md:gap-4">
         <div class="hidden md:flex shrink-0 items-center justify-start">
-          <router-link to="/" class="text-2xl font-extrabold tracking-tight text-[#d56aa0]">meukkul</router-link>
+          <router-link to="/" class="text-2xl font-extrabold tracking-tight text-[#d56aa0]">Meukkul</router-link>
         </div>
 
         <div class="relative w-full md:justify-self-center md:flex md:justify-center">
