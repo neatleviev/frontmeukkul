@@ -13,7 +13,7 @@
     <div class="flex flex-col md:flex-row gap-6 mb-6">
 
      <!-- BLOCO DE IMAGENS (mostrar 1 ou 2 imagens por vez) -->
-<div class="relative w-full md:w-[70%] h-80 overflow-hidden flex flex-col gap-2 items-center">
+<div class="relative w-full md:w-[70%] h-80 flex flex-col gap-2 items-center">
   <!-- Imagem(s) principal(is) -->
   <div class="relative w-full h-full flex items-center justify-center bg-white rounded gap-2 p-2">
     <template v-if="product?.fotos && product.fotos.length">
@@ -56,7 +56,7 @@
   </div>
 
   <!-- Thumbnails -->
-  <div v-if="product?.fotos && product.fotos.length > 1" class="flex gap-2 mt-2 overflow-x-auto w-full">
+  <div v-if="product?.fotos && product.fotos.length > 1" class="flex gap-2 mt-2  w-full">
     <button
       v-for="(f, idx) in product.fotos"
       :key="f.url + '-' + idx"
