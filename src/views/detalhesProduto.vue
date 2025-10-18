@@ -11,54 +11,66 @@
 
     <!-- Blocos lado a lado -->
     <div class="flex flex-col md:flex-row gap-6 mb-6">
-      <!-- BLOCO DE IMAGENS -->
-      <div class="relative w-full md:w-[70%] h-80 overflow-hidden flex gap-2 justify-center">
-        <template v-if="(product.fotos || []).length === 1">
-          <img :src="product.fotos[0].url" :alt="product.fotos[0].name"
-               class="w-full h-full object-contain rounded transition-opacity duration-1000" />
-        </template>
-        <template v-else-if="(product.fotos || []).length === 2">
-          <img v-for="(foto, i) in product.fotos" :key="i" :src="foto.url" :alt="foto.name"
-               class="w-1/2 h-full object-contain rounded transition-opacity duration-1000" />
-        </template>
-        <template v-else-if="(product.fotos || []).length >= 3">
-          <img v-if="isMobile" :src="product.fotos[currentImageIndex % product.fotos.length].url"
-               :alt="product.fotos[currentImageIndex % product.fotos.length].name"
-               class="w-full h-full object-contain rounded transition-opacity duration-1000" />
-          <template v-else>
-            <img v-for="n in 2" :key="n"
-                 :src="product.fotos[(currentImageIndex + n - 1) % product.fotos.length].url"
-                 :alt="product.fotos[(currentImageIndex + n - 1) % product.fotos.length].name"
-                 class="w-1/2 h-full object-contain rounded transition-opacity duration-1000" />
-          </template>
-        </template>
-        <!-- INÍCIO: Badge de estoque no canto inferior direito -->
-<!--
-  Exibe o badge apenas quando:
-   - produto NÃO tem variantes (ex.: estoque único)  OR
-   - existe uma variante selecionada.
-  Assim evitamos mostrar "Indisponível" quando ninguém escolheu uma variante.
--->
-<div
-  v-if="!(product.variantes && product.variantes.length) || selectedVariante"
-  class="absolute right-0 top-1 flex items-center space-x-2 bg-white/90 px-3 py-1 rounded-full shadow"
-  aria-live="polite"
->
-  <span
-    class="w-3 h-3 rounded-full"
-    :class="estoqueDisponivel > 0 ? 'bg-green-500' : 'bg-red-500'"
-    aria-hidden="true"
-  ></span>
 
-  <span class="text-sm font-medium">
-    <span v-if="estoqueDisponivel > 0">{{ estoqueDisponivel }} disponível{{ estoqueDisponivel > 1 ? '' : '' }}</span>
-    <span v-else>Indisponível</span>
-  </span>
-</div>
-<!-- FIM: Badge de estoque no canto inferior direito -->
-
-
+     <!-- BLOCO DE IMAGENS (mostrar 1 ou 2 imagens por vez) -->
+<div class="relative w-full md:w-[70%] h-80 overflow-hidden flex flex-col gap-2 items-center">
+  <!-- Imagem(s) principal(is) -->
+  <div class="relative w-full h-full flex items-center justify-center bg-white rounded gap-2 p-2">
+    <template v-if="product?.fotos && product.fotos.length">
+      <!-- displayCount será 1 ou 2 (computada no script) -->
+      <div
+        v-for="i in displayCount"
+        :key="`main-${(currentImageIndex + (i-1)) % product.fotos.length}`"
+        class="flex-1 h-full flex items-center justify-center"
+        style="min-width: 0;"
+      >
+        <img
+          :src="product.fotos[(currentImageIndex + (i-1)) % product.fotos.length].url"
+          :alt="product.fotos[(currentImageIndex + (i-1)) % product.fotos.length].name || 'foto produto'"
+          class="w-full h-full object-contain rounded transition-opacity duration-300"
+        />
       </div>
+    </template>
+
+    <div v-else class="w-full h-full flex items-center justify-center text-sm text-gray-500">
+      Sem imagens
+    </div>
+
+    <!-- Botão Anterior -->
+    <button
+      @click="prevImage"
+      class="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 shadow hover:bg-white"
+      aria-label="Imagem anterior"
+    >
+      ‹
+    </button>
+
+    <!-- Botão Próximo -->
+    <button
+      @click="nextImage"
+      class="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 shadow hover:bg-white"
+      aria-label="Próxima imagem"
+    >
+      ›
+    </button>
+  </div>
+
+  <!-- Thumbnails -->
+  <div v-if="product?.fotos && product.fotos.length > 1" class="flex gap-2 mt-2 overflow-x-auto w-full">
+    <button
+      v-for="(f, idx) in product.fotos"
+      :key="f.url + '-' + idx"
+      @click="goToImage(idx)"
+      :class="['rounded p-1 border', { 'ring-2 ring-offset-1 ring-[#d56aa0]': isIndexVisible(idx) }]"
+      style="min-width:48px;"
+    >
+      <img :src="f.url" :alt="f.name || 'thumb'" class="w-12 h-12 object-cover rounded" />
+    </button>
+  </div>
+</div>
+
+
+      
 
       <!-- BLOCO DE DETALHES -->
       <div class="w-full md:w-[30%] flex flex-col items-center text-center space-y-4">
@@ -202,7 +214,68 @@ const error = ref<string | null>(null)
 /** Quantidade pode ser 0 quando não há estoque disponível */
 const quantidadeSelecionada = ref<number>(1)
 
-const currentImageIndex = ref(0)
+
+
+
+// === CONTROLES DE IMAGEM (1 ou 2 por vez) ===
+// índice da primeira imagem do par atual
+const currentImageIndex = ref(0) // já existe no seu arquivo; se duplicar, ignore esta linha
+
+// quantas imagens exibimos por vez: 2 quando há >=2 fotos, senão 1
+const displayCount = computed(() => {
+  const len = (product.value?.fotos?.length) || 0
+  return len >= 2 ? 2 : 1
+})
+
+// helper: número de fotos disponíveis
+function fotosLength() {
+  return (product.value?.fotos?.length) || 0
+}
+
+// indica se determinada thumbnail (idx) está visível no par atual
+function isIndexVisible(idx: number) {
+  const len = fotosLength()
+  if (!len) return false
+  for (let i = 0; i < displayCount.value; i++) {
+    if (((currentImageIndex.value + i) % len) === idx) return true
+  }
+  return false
+}
+
+// normaliza índice para [0, len-1]
+function normalizeIndex(idx: number) {
+  const len = fotosLength()
+  if (!len) return 0
+  return ((idx % len) + len) % len
+}
+
+// Avança para o próximo "slot" (pula displayCount posições)
+function nextImage() {
+  const len = fotosLength()
+  if (!len) return
+  const step = displayCount.value
+  currentImageIndex.value = normalizeIndex(currentImageIndex.value + step)
+}
+
+// Vai para o anterior (pula displayCount posições para trás)
+function prevImage() {
+  const len = fotosLength()
+  if (!len) return
+  const step = displayCount.value
+  currentImageIndex.value = normalizeIndex(currentImageIndex.value - step)
+}
+
+// Vai diretamente para a imagem clicada nas thumbnails
+function goToImage(idx: number) {
+  const len = fotosLength()
+  if (!len) return
+  currentImageIndex.value = normalizeIndex(idx)
+}
+
+
+
+
+
 const isMobile = ref(false)
 const mostrarDescricao = ref(false)
 const carregandoDescricao = ref(false)
@@ -211,7 +284,6 @@ const carregandoDescricao = ref(false)
 const closeTimer = ref<number | null>(null)
 const OPEN_CLOSE_DELAY = 120
 
-let imageInterval: any = null
 
 
 /** Reatividade das opções selecionadas: { time: 'flamengo', aroma: 'chocolate', ... } */
@@ -695,6 +767,22 @@ watch(
 )
 /* === FIM: inicialização/watchers === */
 
+// handler do teclado — coloque em escopo superior ao onMounted/onBeforeUnmount
+function onKeyDown(e: KeyboardEvent) {
+  // não reagir se o usuário estiver digitando em um input/textarea/select ou em elemento contentEditable
+  const active = document.activeElement as HTMLElement | null
+  const tag = active?.tagName ?? ''
+  const isEditable = active?.isContentEditable ?? false
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || isEditable) return
+
+  if (e.key === 'ArrowLeft') {
+    prevImage()
+    e.preventDefault()
+  } else if (e.key === 'ArrowRight') {
+    nextImage()
+    e.preventDefault()
+  }
+}
 
 
 
@@ -713,19 +801,21 @@ onMounted(() => {
   isTouchDevice.value = 'ontouchstart' in window || navigator.maxTouchPoints > 0
   ensureFullProductIfNeeded().then(() => { if (mostrarDescricao.value) carregarDescricao() }).catch(() => {})
 
-  const fotosLength = (product.value?.fotos?.length) || 0
-  if (fotosLength >= 3) {
-    imageInterval = setInterval(() => {
-      currentImageIndex.value = (currentImageIndex.value + (isMobile.value ? 1 : 2)) % fotosLength
-    }, 3000)
-  }
+  // *** Suporte a teclado: setas esquerda/direita ***
+  window.addEventListener('keydown', onKeyDown)
 })
 
+
 onBeforeUnmount(() => {
-  if (imageInterval) clearInterval(imageInterval)
+  // Se você tinha timers de fechamento (closeTimer), mantém
   if (closeTimer.value) clearTimeout(closeTimer.value)
   window.removeEventListener('resize', checkIsMobile)
+
+  // remover listener do teclado
+  window.removeEventListener('keydown', onKeyDown)
 })
+
+
 </script>
 
 <style scoped>
