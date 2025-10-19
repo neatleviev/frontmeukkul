@@ -15,58 +15,119 @@
      <!-- BLOCO DE IMAGENS (mostrar 1 ou 2 imagens por vez) -->
 <div class="relative w-full md:w-[70%] h-80 flex flex-col gap-2 items-center">
   <!-- Imagem(s) principal(is) -->
-  <div class="relative w-full h-full flex items-center justify-center bg-white rounded gap-2 p-2">
-    <template v-if="product?.fotos && product.fotos.length">
-      <!-- displayCount será 1 ou 2 (computada no script) -->
-      <div
-        v-for="i in displayCount"
-        :key="`main-${(currentImageIndex + (i-1)) % product.fotos.length}`"
-        class="flex-1 h-full flex items-center justify-center"
-        style="min-width: 0;"
-      >
-        <img
-          :src="product.fotos[(currentImageIndex + (i-1)) % product.fotos.length].url"
-          :alt="product.fotos[(currentImageIndex + (i-1)) % product.fotos.length].name || 'foto produto'"
-          class="w-full h-full object-contain rounded transition-opacity duration-300"
-        />
-      </div>
-    </template>
-
-    <div v-else class="w-full h-full flex items-center justify-center text-sm text-gray-500">
-      Sem imagens
+  <!-- INÍCIO: CONTAINER PRINCIPAL DE IMAGENS (SUBSTITUIR) -->
+<div
+  class="relative w-full h-full flex items-center justify-center bg-white rounded gap-2 p-2"
+  :class="{ 'cursor-grab': !isDragging, 'cursor-grabbing': isDragging }"
+  style="touch-action: pan-y;" 
+  @mousedown.prevent="startDrag"
+  @touchstart.prevent="startDrag"
+  @mousemove.prevent="onDragging"
+  @touchmove.prevent="onDragging"
+  @mouseup.prevent="endDrag"
+  @mouseleave="endDrag"
+  @touchend.prevent="endDrag"
+>
+  <template v-if="product?.fotos && product.fotos.length">
+    <!-- displayCount será 1 ou 2 (computada no script) -->
+    <div
+      v-for="i in displayCount"
+      :key="`main-${(currentImageIndex + (i-1)) % product.fotos.length}`"
+      class="flex-1 h-full flex items-center justify-center"
+      style="min-width: 0;"
+    >
+      <img
+        :src="product.fotos[(currentImageIndex + (i-1)) % product.fotos.length].url"
+        :alt="product.fotos[(currentImageIndex + (i-1)) % product.fotos.length].name || 'foto produto'"
+        class="w-full h-full object-contain rounded transition-opacity duration-300"
+      />
     </div>
+  </template>
 
-    <!-- Botão Anterior -->
-    <button
-      @click="prevImage"
-      class="absolute left-2 top-1/2 -translate-y-1/2 p-50 rounded-full bg-white/80 shadow hover:bg-white"
-      aria-label="Imagem anterior"
-    >
-      ‹
-    </button>
+  <!-- Botão Anterior (oculto em mobile) -->
+  <button
+    @click="prevImage"
+    class="hidden md:block absolute left-2 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/80 shadow hover:bg-white"
+    aria-label="Imagem anterior"
+  >
+    ‹
+  </button>
 
-    <!-- Botão Próximo -->
-    <button
-      @click="nextImage"
-      class="absolute right-2 top-1/2 -translate-y-1/2 p-50 rounded-full bg-white/80 shadow hover:bg-white"
-      aria-label="Próxima imagem"
-    >
-      ›
-    </button>
-  </div>
+  <!-- Botão Próximo (oculto em mobile) -->
+  <button
+    @click="nextImage"
+    class="hidden md:block absolute right-2 top-1/2 -translate-y-1/2 p-4 rounded-full bg-white/80 shadow hover:bg-white"
+    aria-label="Próxima imagem"
+  >
+    ›
+  </button>
+</div>
+<!-- FIM: CONTAINER PRINCIPAL DE IMAGENS -->
 
+
+ <!-- INÍCIO: Thumbnails (corrigido: largura limitada + centralizadas + mobile scrollável) -->
+<div
+  v-if="product?.fotos && product.fotos.length > 1"
+  class="w-full flex justify-center mt-3"
+  @touchstart.stop
+  @mousedown.stop
+  role="tablist"
+  aria-label="Miniaturas"
+>
   <!-- Thumbnails -->
-  <div v-if="product?.fotos && product.fotos.length > 1" class="flex gap-2 mt-2  w-full">
+<div
+  v-if="product?.fotos && product.fotos.length > 1"
+  class="w-full flex justify-center mt-3"
+  @touchstart.stop
+  @mousedown.stop
+  role="tablist"
+  aria-label="Miniaturas"
+>
+  <div
+    ref="thumbsEl"
+    class="flex gap-2 overflow-x-auto no-scrollbar pb-1 flex-nowrap md:justify-center"
+    style="max-width: 100%;"
+    :class="{'cursor-grab': !thumbIsDragging, 'cursor-grabbing': thumbIsDragging}"
+    @mousedown.prevent="startThumbDrag"
+    @touchstart.prevent="startThumbDrag"
+    @mousemove.prevent="onThumbDragging"
+    @touchmove.prevent="onThumbDragging"
+    @mouseup.prevent="endThumbDrag"
+    @mouseleave="endThumbDrag"
+    @touchend.prevent="endThumbDrag"
+  >
+    <!-- aqui ficam os botões das miniaturas -->
     <button
       v-for="(f, idx) in product.fotos"
       :key="f.url + '-' + idx"
       @click="goToImage(idx)"
-      :class="['rounded p-1 border', { 'ring-2 ring-offset-1 ring-[#d56aa0]': isIndexVisible(idx) }]"
-      style="min-width:48px;"
+      :aria-label="`Ir para imagem ${idx + 1}`"
+      :class="[
+        'flex items-center justify-center rounded border bg-white transition-all duration-200 hover:opacity-80',
+        { 'ring-2 ring-offset-1 ring-[#d56aa0]': isIndexVisible(idx) }
+      ]"
+      style="flex: 0 0 auto;"
     >
-      <img :src="f.url" :alt="f.name || 'thumb'" class="w-12 h-12 object-cover rounded" />
+      <img
+        :src="f.url"
+        :alt="f.name || `miniatura ${idx + 1}`"
+        class="object-contain rounded"
+        :class="['w-16 h-16 md:w-20 md:h-20']"
+        draggable="false"
+      />
     </button>
   </div>
+</div>
+
+</div>
+<!-- FIM: Thumbnails -->
+
+
+
+
+
+
+
 </div>
 
 
@@ -213,6 +274,120 @@ const error = ref<string | null>(null)
 
 /** Quantidade pode ser 0 quando não há estoque disponível */
 const quantidadeSelecionada = ref<number>(1)
+
+
+
+
+// --- INÍCIO: Drag / Swipe support (adicionar) ---
+import { ref as vueRef } from 'vue' // caso já tenha ref importado, ignore esta linha
+
+const isDragging = ref(false)
+const dragStartX = ref(0)
+const dragCurrentX = ref(0)
+const dragThreshold = 50 // pixels necessários para considerar um swipe
+
+function getEventX(e: any) {
+  if (!e) return 0
+  if (e.touches && e.touches.length) return e.touches[0].clientX
+  if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientX
+  return e.clientX ?? 0
+}
+
+function startDrag(e: any) {
+  // evita que o click padrão e seleção atuem
+  isDragging.value = true
+  dragStartX.value = getEventX(e)
+  dragCurrentX.value = dragStartX.value
+
+  // Adiciona listeners globais para garantir captura do mouse quando fora do elemento
+  document.addEventListener('mousemove', onDragging)
+  document.addEventListener('mouseup', endDrag)
+  document.addEventListener('touchmove', onDragging, { passive: false })
+  document.addEventListener('touchend', endDrag)
+}
+
+function onDragging(e: any) {
+  if (!isDragging.value) return
+  const x = getEventX(e)
+  dragCurrentX.value = x
+  // opcional: podemos usar dragCurrentX - dragStartX para efeitos visuais (não implementado aqui)
+  // se quisermos prevenir o scroll durante o arrasto horizontal:
+  const delta = Math.abs(dragCurrentX.value - dragStartX.value)
+  if (e.type?.startsWith('touch') && delta > 10) {
+    // impede scroll vertical enquanto o usuário está claramente arrastando horizontalmente
+    e.preventDefault?.()
+  }
+}
+
+function endDrag(e: any) {
+  if (!isDragging.value) return
+  isDragging.value = false
+  dragCurrentX.value = getEventX(e)
+  const delta = dragCurrentX.value - dragStartX.value
+
+  // remover listeners globais adicionados em startDrag
+  document.removeEventListener('mousemove', onDragging)
+  document.removeEventListener('mouseup', endDrag)
+  document.removeEventListener('touchmove', onDragging)
+  document.removeEventListener('touchend', endDrag)
+
+  if (Math.abs(delta) >= dragThreshold) {
+    if (delta < 0) {
+      // movimento para esquerda => próxima imagem
+      nextImage()
+    } else {
+      // movimento para direita => imagem anterior
+      prevImage()
+    }
+  } else {
+    // Se necessário, podemos tratar como click (já existe @click nos thumbs). Aqui não fazemos nada.
+  }
+
+  // reset valores
+  dragStartX.value = 0
+  dragCurrentX.value = 0
+}
+// --- FIM: Drag / Swipe support ---
+
+
+
+// 👉 Cole aqui:
+const thumbsEl = ref<HTMLElement | null>(null)
+
+const thumbIsDragging = ref(false)
+const thumbStartX = ref(0)
+const thumbStartScroll = ref(0)
+const THUMB_DRAG_PASSIVE = { passive: false }
+
+function startThumbDrag(e: any) {
+  thumbIsDragging.value = true
+  thumbStartX.value = getEventX(e)
+  thumbStartScroll.value = thumbsEl.value ? thumbsEl.value.scrollLeft : 0
+
+  document.addEventListener('mousemove', onThumbDragging)
+  document.addEventListener('mouseup', endThumbDrag)
+  document.addEventListener('touchmove', onThumbDragging, THUMB_DRAG_PASSIVE)
+  document.addEventListener('touchend', endThumbDrag)
+}
+
+function onThumbDragging(e: any) {
+  if (!thumbIsDragging.value || !thumbsEl.value) return
+  const x = getEventX(e)
+  const dx = x - thumbStartX.value
+  thumbsEl.value.scrollLeft = thumbStartScroll.value - dx
+  if (e.type?.startsWith('touch') && Math.abs(dx) > 10) e.preventDefault?.()
+}
+
+function endThumbDrag(e: any) {
+  if (!thumbIsDragging.value) return
+  thumbIsDragging.value = false
+  document.removeEventListener('mousemove', onThumbDragging)
+  document.removeEventListener('mouseup', endThumbDrag)
+  document.removeEventListener('touchmove', onThumbDragging)
+  document.removeEventListener('touchend', endThumbDrag)
+  thumbStartX.value = 0
+  thumbStartScroll.value = 0
+}
 
 
 
@@ -813,7 +988,14 @@ onBeforeUnmount(() => {
 
   // remover listener do teclado
   window.removeEventListener('keydown', onKeyDown)
+
+  // limpeza dos listeners globais de arrasto (caso ainda estejam ativos)
+  document.removeEventListener('mousemove', onDragging)
+  document.removeEventListener('mouseup', endDrag)
+  document.removeEventListener('touchmove', onDragging)
+  document.removeEventListener('touchend', endDrag)
 })
+
 
 
 </script>
@@ -831,4 +1013,20 @@ img { transition: opacity 1s ease-in-out; }
   -moz-appearance: textfield; /* Firefox */
   appearance: textfield;      /* padrão */
 }
+
+/* opcional: melhora visual durante arrasto */
+.cursor-grab { cursor: grab; }
+.cursor-grabbing { cursor: grabbing; }
+
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+
+
 </style>
