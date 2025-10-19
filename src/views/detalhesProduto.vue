@@ -39,7 +39,7 @@
     <!-- Botão Anterior -->
     <button
       @click="prevImage"
-      class="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 shadow hover:bg-white"
+      class="absolute left-2 top-1/2 -translate-y-1/2 p-50 rounded-full bg-white/80 shadow hover:bg-white"
       aria-label="Imagem anterior"
     >
       ‹
@@ -48,7 +48,7 @@
     <!-- Botão Próximo -->
     <button
       @click="nextImage"
-      class="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/80 shadow hover:bg-white"
+      class="absolute right-2 top-1/2 -translate-y-1/2 p-50 rounded-full bg-white/80 shadow hover:bg-white"
       aria-label="Próxima imagem"
     >
       ›
