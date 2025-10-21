@@ -129,8 +129,8 @@
       <!-- BLOCO DE DETALHES -->
       <div class="w-full md:w-[30%] flex flex-col items-center text-center space-y-4">
         <!-- Preço -->
-       <p class="text-xl font-medium">
-        <span class="text-gray-800 font-semibold">R$ {{ product.preco?.toFixed(2) }}</span>
+       <p class="estiloPrice font-medium">
+        <span class="rounded-xl">R$ {{ product.preco?.toFixed(2) }}</span>
       </p>
 
         <!-- Mensagem impactante sobre a sacola -->
@@ -1020,6 +1020,10 @@ img { transition: opacity 1s ease-in-out; }
   display: none;
 }
 
-
+.estiloPrice {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #E2185C;
+}
 
 </style>
