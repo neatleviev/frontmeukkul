@@ -133,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProdutoStore } from '@/stores/useProdutoStore'
 import { useSacolaStore } from '@/stores/useSacolaStore'
@@ -149,6 +149,37 @@ const selectedVariante = ref<any>(null)
 const quantidade = ref(0)
 const currentImageIndex = ref(0)
 let interval: any = null
+
+
+// --- INÍCIO: lógica dinâmica para detectar keys de opção ---
+const optionKeys = computed(() => {
+  const variantes = props.product?.variantes ?? []   // se seu prop for outro nome, ajuste aqui
+  const keysSet = new Set<string>()
+
+  const ignorarList = [
+    'id', '_id', 'sku', 'preco', 'price', 'precoPromocional', 'estoque',
+    'estoqueVariante', 'estoqueUnico', 'quantidade', 'ticket', 'ticketPai',
+    'createdAt', 'updatedAt', '__v', 'imagem', 'fotos', 'url'
+  ]
+
+  for (const v of variantes) {
+    if (!v || typeof v !== 'object') continue
+    for (const k of Object.keys(v)) {
+      if (ignorarList.includes(k)) continue
+      const val = v[k]
+      if (val === null || val === undefined) continue
+      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+        if (String(val).trim() === '') continue
+        keysSet.add(k)
+      }
+    }
+  }
+
+  return Array.from(keysSet)
+})
+// --- FIM: optionKeys ---
+
+
 
 const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0
 
@@ -172,8 +203,55 @@ const estoqueDisponivel = computed(() => {
 
 function formatarVariante(v: any): string {
   if (!v) return ''
-  return `${v.tamanho || ''} | ${v.cor || ''} | ${v.time || v.times || v.team || ''} | ${v.aroma || ''} | ${v.funcao || ''}`
-    .replace(/\s\|\s(\s\|\s)*$/,'')
+
+  const preferidas = ['tamanho', 'cor', 'time', 'times', 'team', 'aroma', 'funcao']
+
+  const ignorar = new Set([
+    'id', '_id', 'sku', 'preco', 'price', 'precoPromocional', 'estoque',
+    'estoqueVariante', 'estoqueUnico', 'quantidade', 'ticket', 'ticketPai',
+    'createdAt', 'updatedAt', '__v', 'imagem', 'fotos', 'url'
+  ])
+
+  const partes: string[] = []
+
+  const keysFromOptions = (optionKeys && optionKeys.value && optionKeys.value.length)
+    ? optionKeys.value
+    : []
+
+  // 1) Preferidas
+  for (const k of preferidas) {
+    const val = v[k]
+    if (val !== undefined && val !== null && String(val).trim() !== '') {
+      partes.push(String(val).trim())
+    }
+  }
+
+  // 2) Keys detectadas dinamicamente
+  for (const k of keysFromOptions) {
+    if (preferidas.includes(k)) continue
+    if (ignorar.has(k)) continue
+    const val = v[k]
+    if (val === undefined || val === null) continue
+    const s = String(val).trim()
+    if (s === '') continue
+    partes.push(s)
+  }
+
+  // 3) Outras chaves restantes (ordenadas)
+  Object.keys(v)
+    .sort()
+    .forEach((k) => {
+      if (preferidas.includes(k)) return
+      if (keysFromOptions.includes(k)) return
+      if (ignorar.has(k)) return
+      const val = v[k]
+      if (val === undefined || val === null) return
+      const s = String(val).trim()
+      if (s === '') return
+      partes.push(s)
+    })
+
+  return partes.join(' | ').replace(/\s\|\s(\s\|\s)*$/,'')
 }
 
 
