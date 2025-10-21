@@ -9,20 +9,19 @@
     <div class="absolute top-3 right-3" v-if="$slots.badge">
       <slot name="badge" />
     </div>
+    <!-- preço -->
+    <div class="absolute top-1 left-0 select-none price-badge-wrapper">
+        <div class=" flex flex-col items-end px-2 py-1 rounded-xl">
+          <span class="price-premium">R$ {{ (product.preco ?? 0).toFixed(2) }}</span>
+        </div>
+      </div>
 
+      <!-- Ícone de fogo (colocado no canto superior direito da imagem) -->
+      <span class="image-flame select-none" aria-hidden="true">🔥</span>
     <div
       class="relative  w-full h-60 overflow-hidden  bg-white rounded-xl"
       v-if="product.fotos?.length"
     >
-      <!-- Ícone de fogo (colocado no canto superior direito da imagem) -->
-      <span class="image-flame select-none" aria-hidden="true">🔥</span>
-
-      <!-- Preço em destaque (premium) -->
-      <div class="absolute top-3 left-3 select-none price-badge-wrapper">
-        <div class="price-badge flex flex-col items-end px-3 py-1 rounded-xl">
-          <span class="price-premium">R$ {{ (product.preco ?? 0).toFixed(2) }}</span>
-        </div>
-      </div>
 
       <img
         v-for="(foto, i) in product.fotos"
@@ -44,7 +43,7 @@
       ref="titleEl"
       class="product-title text-lg font-semibold mb-1 leading-tight flex items-center gap-2 select-none"
     >
-      <span class="name bg-clip-text text-transparent bg-gradient-to-r from-[#d56aa0] to-rose-400">
+      <span class="name bg-clip-text  text-[#E2185C]">
         {{ product.nome || 'Sem nome' }}
       </span>
     </h2>
@@ -319,27 +318,45 @@ onBeforeUnmount(() => {
   position: relative; /* allow z-index to take effect */
   z-index: 41;
 }
+
+
+/* Price badge premium - cor sólida, ajuste mobile e leve deslocamento à direita */
 .price-premium {
-  font-size: 1.1rem;
-  font-weight: 900;
-  background: linear-gradient(90deg,#d56aa0,#f472b6);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  letter-spacing: -0.5px;
-  text-shadow: 0 0 12px rgba(213,106,160,0.25);
+  font-size: 1.05rem;     /* tamanho base para desktop/tablet */
+  font-weight: 800;
+  color: #E2185C;         /* cor solicitada */
+  letter-spacing: -0.3px;
+  text-shadow: none;      /* removido shadow para manter cor sólida limpa */
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  background: none;
+  display: inline-block;
+  transform: translateX(2px); /* pequeno deslocamento para "encostar" mais à direita */
 }
+
+/* Ajuste fino para mobile: diminuir tamanho e reduzir deslocamento */
+@media (max-width: 640px) {
+  .price-premium {
+    font-size: 0.95rem;   /* um pouco menor em mobiles */
+    transform: translateX(1px);
+    white-space: nowrap;  /* evita quebra inesperada do R$ em linhas pequenas */
+  }
+
+  
+}
+
+
 
 /* Ícone de fogo sobre a imagem (canto superior direito) */
 .image-flame {
   position: absolute;
-  top: 0.75rem; /* top-3 */
-  right: 0.75rem; /* right-3 */
+  top: 0.25rem; /* top-3 */
+  right: 0.25rem; /* right-3 */
   z-index: 42;
   pointer-events: none;
   display: inline-flex;
   transform-origin: 50% 60%;
-  font-size: 1.05rem;
+  font-size: 1.20rem;
   filter: drop-shadow(0 4px 10px rgba(213,106,160,0.08));
   animation: imageFlameFloat 2.6s ease-in-out infinite;
   /* um leve padding para não colar na borda da imagem */
