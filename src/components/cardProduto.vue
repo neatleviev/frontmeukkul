@@ -17,7 +17,7 @@
       </div>
 
       <!-- Ícone de fogo (colocado no canto superior direito da imagem) -->
-      <span class="image-flame select-none" aria-hidden="true">🔥</span>
+      <span class="image-flame select-none" aria-hidden="true">🎃</span>
     <div
       class="relative  w-full h-60 overflow-hidden  bg-white rounded-xl"
       v-if="product.fotos?.length"
@@ -322,7 +322,7 @@ onBeforeUnmount(() => {
 
 /* Price badge premium - cor sólida, ajuste mobile e leve deslocamento à direita */
 .price-premium {
-  font-size: 1.05rem;     /* tamanho base para desktop/tablet */
+  font-size: 1.25rem;     /* tamanho base para desktop/tablet */
   font-weight: 800;
   color: #E2185C;         /* cor solicitada */
   letter-spacing: -0.3px;
