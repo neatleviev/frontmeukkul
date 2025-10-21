@@ -4,7 +4,7 @@
     <!-- Botão + Título -->
     <div class="flex items-center gap-4 mb-1">
       <BotaoVoltar />
-      <h1 class="text-xl font-bold text-[#d56aa0] ">
+      <h1 class="tituloEstilo leading-tight mt-2">
         <span v-if="product.nome">{{ product.nome }}</span>
       </h1>
     </div>
@@ -1022,6 +1022,12 @@ img { transition: opacity 1s ease-in-out; }
 
 .estiloPrice {
   font-size: 1.7rem;
+  font-weight: 800;
+  color: #E2185C;
+}
+
+.tituloEstilo {
+  font-size: 1.25rem;
   font-weight: 800;
   color: #E2185C;
 }
