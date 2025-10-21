@@ -2,18 +2,18 @@
   <div v-if="error" class="text-red-500">{{ error }}</div>
   <div v-else-if="product" class="relative">
     <!-- Botão + Título -->
-    <div class="flex items-center gap-4 mb-6">
+    <div class="flex items-center gap-4 mb-1">
       <BotaoVoltar />
-      <h1 class="text-3xl font-bold text-[#d56aa0] ">
+      <h1 class="text-xl font-bold text-[#d56aa0] ">
         <span v-if="product.nome">{{ product.nome }}</span>
       </h1>
     </div>
 
     <!-- Blocos lado a lado -->
-    <div class="flex flex-col md:flex-row gap-6 mb-6">
+    <div class="flex flex-col md:flex-row gap-2 ">
 
      <!-- BLOCO DE IMAGENS (mostrar 1 ou 2 imagens por vez) -->
-<div class="relative w-full md:w-[70%] h-80 flex flex-col gap-2 items-center">
+<div class="relative w-full md:w-[70%] mb-2 flex flex-col gap-1 items-center">
   <!-- Imagem(s) principal(is) -->
   <!-- INÍCIO: CONTAINER PRINCIPAL DE IMAGENS (SUBSTITUIR) -->
 <div
@@ -68,7 +68,7 @@
  <!-- INÍCIO: Thumbnails (corrigido: largura limitada + centralizadas + mobile scrollável) -->
 <div
   v-if="product?.fotos && product.fotos.length > 1"
-  class="w-full flex justify-center mt-3"
+  class="w-full flex justify-center "
   @touchstart.stop
   @mousedown.stop
   role="tablist"
@@ -77,7 +77,7 @@
   <!-- Thumbnails -->
 <div
   v-if="product?.fotos && product.fotos.length > 1"
-  class="w-full flex justify-center mt-3"
+  class="w-full flex justify-center"
   @touchstart.stop
   @mousedown.stop
   role="tablist"
@@ -112,7 +112,7 @@
         :src="f.url"
         :alt="f.name || `miniatura ${idx + 1}`"
         class="object-contain rounded"
-        :class="['w-16 h-16 md:w-20 md:h-20']"
+        :class="['w-16 h-16 md:w-20 md:h-10']"
         draggable="false"
       />
     </button>
@@ -124,21 +124,14 @@
 
 
 
-
-
-
-
 </div>
-
-
-      
 
       <!-- BLOCO DE DETALHES -->
       <div class="w-full md:w-[30%] flex flex-col items-center text-center space-y-4">
         <!-- Preço -->
-        <p class="text-lg font-medium">
-          Preço: <span class="text-gray-800 font-semibold">R$ {{ product.preco?.toFixed(2) }}</span>
-        </p>
+       <p class="text-xl font-medium">
+        <span class="text-gray-800 font-semibold">R$ {{ product.preco?.toFixed(2) }}</span>
+      </p>
 
         <!-- Mensagem impactante sobre a sacola -->
         <p v-if="emSacola > 0" class="text-pink-600 font-semibold text-sm">
@@ -241,7 +234,7 @@
     </div>
 
     <!-- Descrição abaixo do bloco pai -->
-    <div v-if="mostrarDescricao" class="mt-6 border-t border-gray-200 pt-4 p-10 ">
+    <div v-if="mostrarDescricao" class=" border-t border-gray-200 pt-4 p-10 ">
       <div v-if="carregandoDescricao" class="text-gray-500 text-sm">Carregando descrição...</div>
       <div v-else>
         <template v-if="product.descricaoTratada && product.descricaoTratada.length">
