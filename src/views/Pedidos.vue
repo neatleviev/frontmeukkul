@@ -104,9 +104,6 @@
                           <small v-if="item._variante" class="item-variant"> — {{ item._variante.cor ?? item._variante.tamanho ?? item._variante.nome ?? ('Variante ' + (item._variante.ticket ?? item._variante.id ?? '')) }}</small>
                         </div>
 
-                        
-
-
                         <div class="item-meta">
                           <div class="meta-left">
                             Quantidade:
@@ -347,7 +344,13 @@ function getVariantStock(item: any) {
 
 function extraVariantFields(variantObj: any) {
   if (!variantObj || typeof variantObj !== 'object') return {};
-  const skip = new Set(['id','ticket','estoqueVariante','stock','estoque','createdAt','updatedAt']);
+  // SKIP: campos que já mostramos explicitamente no template
+  const skip = new Set([
+    'id','ticket','estoqueVariante','stock','estoque',
+    'createdAt','updatedAt',
+    // campos mostrados explicitamente - evitar duplicação:
+    'cor','tamanho','aroma'
+  ]);
   const out: Record<string, any> = {};
   for (const k of Object.keys(variantObj)) {
     if (!skip.has(k) && (typeof variantObj[k] === 'string' || typeof variantObj[k] === 'number' || variantObj[k] === null)) {
@@ -356,6 +359,7 @@ function extraVariantFields(variantObj: any) {
   }
   return out;
 }
+
 
 function prettyLabel(key: string) {
   const map: Record<string,string> = {
