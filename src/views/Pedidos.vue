@@ -23,9 +23,23 @@
               Cliente: <strong>{{ formatPrimitive(pedido.primeiroNome) }}</strong>
             </div>
           </div>
-          <div class="meta">
-            Criado: <span class="meta-value">{{ formatPrimitive(pedido.createdAt) }}</span>
-          </div>
+            <div class="meta" style="display:flex; gap:8px; align-items:center;">
+    <div>
+      Criado: <span class="meta-value">{{ formatPrimitive(pedido.createdAt) }}</span>
+    </div>
+
+    <!-- botão excluir -->
+    <button
+      class="btn btn-ghost btn-danger"
+      :disabled="deleting[pedido.id]"
+      @click="deletePedido(pedido)"
+      title="Excluir pedido"
+      style="margin-left:8px;"
+    >
+      {{ deleting[pedido.id] ? 'Excluindo...' : 'Excluir' }}
+    </button>
+  </div>
+
         </header>
 
         <dl class="mt-3 space-y-2 details-list">
@@ -183,8 +197,12 @@ import {
   atualizarEntregaPedido,
   atualizarPagamentoPedido,
   atualizarPedido,
-  atualizarEstoqueSacola
+  atualizarEstoqueSacola,
+  deletarPedido
 } from '@/services/strapi';
+
+// ... suas outras refs/reactives
+const deleting = reactive<Record<string | number, boolean>>({});
 
 const pedidos = ref<any[]>([]);
 const loading = ref(false);
@@ -448,6 +466,46 @@ async function saveAndamento(pedido: any) {
   }
 }
 
+
+// DELETAR FUNCTION
+
+async function deletePedido(pedido: any) {
+  const idOrDoc = pedido.documentId ?? pedido.id;
+  const id = pedido.id;
+
+  // proteção básica
+  if (!id && id !== 0) {
+    console.warn('Pedido sem id:', pedido);
+    return;
+  }
+
+  // Confirmação — se preferir modal custom, substitua aqui
+  const ok = window.confirm(`Excluir pedido #${id}${pedido.codigo_unico ? ' — ' + pedido.codigo_unico : ''}? Esta ação não pode ser desfeita.`);
+  if (!ok) return;
+
+  deleting[id] = true;
+  try {
+    await deletarPedido(idOrDoc);
+
+    // Remove o pedido da lista local
+    pedidos.value = pedidos.value.filter((p: any) => p.id !== id);
+
+    // opcional: limpar mensagens/edições relacionadas
+    delete messages[id];
+    delete editingAndamento[id];
+    // você pode também mostrar um aviso temporário:
+    // messages[id] = 'Pedido excluído';
+    // setTimeout(() => { delete messages[id]; }, 2500);
+  } catch (err: any) {
+    console.error('Erro ao excluir pedido', err);
+    // mostrar erro para o usuário (usa o mesmo objeto messages existente)
+    messages[id] = `Erro ao excluir: ${err?.message ?? String(err)}`;
+  } finally {
+    deleting[id] = false;
+  }
+}
+
+
 /* entrega */
 function startEditEntrega(p: any) {
   editingEntrega[p.id] = true;
@@ -648,12 +706,22 @@ async function saveQuantidade(pedido: any, idx: number, item: any) {
     const deltaQuantidade = Number(novo) - Number(antigo);
     const totalsUpdates = adjustPedidoTotals(pedido, unitPrice, deltaQuantidade);
 
-    // sanitized items
+        // sanitized items — remover campos transitórios (qualquer chave que começa com '_')
     const sanitizedItensToSend = newItens.map((it: any) => {
-      const copy: any = { ...it };
-      delete copy._produto;
+      // deep clone para não tocar no objeto original do pedido
+      const copy: any = JSON.parse(JSON.stringify(it));
+
+      // remover chaves internas/transitórias que começam com '_' (ex: _produto, _variante, _imagemExibicao, ...)
+      for (const key of Object.keys(copy)) {
+        if (key.startsWith('_')) {
+          delete copy[key];
+        }
+      }
+
+      // remover metadados locais que não devem ir para o Strapi
       delete copy.id;
       delete copy.documentId;
+
       return copy;
     });
 

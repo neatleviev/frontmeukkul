@@ -37,6 +37,9 @@ export async function atualizarEstoqueSacola(payload: {
   }
 }
 
+
+
+
 /* ============================================================
  * BUSCAR PRODUTO POR TICKETPAI (usando documentId no v5)
  * ============================================================ */
@@ -55,6 +58,10 @@ export async function buscarProdutoPorTicketPai(ticketPai: number) {
   const json = await res.json()
   return json.data[0] // retorna objeto que contém documentId
 }
+
+
+
+
 
 /* ============================================================
  * MAPEAMENTO DAS ENUMS (FRONT -> STRAPI) tornando editavel campos selects entrega e pagamento
@@ -245,6 +252,48 @@ export async function getAllPedidosSimple(populate = '*') {
   const json = await res.json();
   return normalizeStrapiList(json);
 }
+
+
+
+
+
+
+
+/**
+ * Deleta um pedido (Strapi v5)
+ * idOuDocumentId: pode ser o id numérico do registro ou o documentId (string) se você usa documentos.
+ */
+export async function deletarPedido(idOuDocumentId: string | number) {
+  if (!STRAPI_API_URL) throw new Error('VITE_STRAPI_API_URL não definido');
+
+  const identifier = encodeURIComponent(String(idOuDocumentId));
+  const url = `${STRAPI_API_URL}/pedidos/${identifier}`;
+
+  const headers: Record<string, string> = {};
+  if (ADMIN_TOKEN) headers['Authorization'] = `Bearer ${ADMIN_TOKEN}`;
+
+  console.debug('[strapi] deletarPedido -> DELETE', url);
+
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers,
+  });
+
+  // tenta ler corpo para mensagem de erro/retorno
+  const text = await res.text().catch(() => '');
+  let json: any = null;
+  try { json = text ? JSON.parse(text) : null; } catch { json = text; }
+
+  if (!res.ok) {
+    throw new Error(`Erro ao deletar pedido ${idOuDocumentId}: ${res.status} — ${JSON.stringify(json)}`);
+  }
+
+  // Retorna o corpo (Strapi costuma retornar o objeto deletado ou vazio)
+  return json;
+}
+
+
+
 
 
 /* ============================================================
