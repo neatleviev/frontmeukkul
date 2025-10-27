@@ -2,7 +2,7 @@
   <header class="site-header sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 text-[#d56aa0]">
     <div class="max-w-screen-xl mx-auto px-4 py-3">
       <div class="flex items-center justify-between md:hidden">
-        <router-link to="/" class="text-2xl font-extrabold tracking-tight text-[#d56aa0]">meukkul</router-link>
+        <router-link to="/" class="text-2xl font-extrabold tracking-tight text-[#d56aa0]">Meukkul</router-link>
 
         <div class="flex items-center gap-2" @click="sacolaRef?.abrirSacola()" role="button" aria-label="Abrir sacola">
           <span :key="totalPreco" class="price-loop" aria-live="polite">R$ {{ totalPreco.toFixed(2) }}</span>

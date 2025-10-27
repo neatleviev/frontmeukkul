@@ -92,14 +92,20 @@
                 <template v-else-if="key === 'itens_sacola'">
                   <div class="items-block">
                     <div v-for="(item, idx) in pedido.itens_sacola" :key="idx" class="item-row">
-                      <img
-                        v-if="item._produto?.image"
-                        :src="item._produto.image"
+                                                                  <img
+                        v-if="item._imagemExibicao"
+                        :src="item._imagemExibicao"
                         alt="foto"
                         class="item-thumb"
                       />
                       <div class="item-body">
-                        <div class="item-title">{{ item._produto?.title || 'Produto desconhecido' }}</div>
+                        <div class="item-title">
+                          {{ item._produto?.title ?? item._produto?.nome ?? 'Produto desconhecido' }}
+                          <small v-if="item._variante" class="item-variant"> — {{ item._variante.cor ?? item._variante.tamanho ?? item._variante.nome ?? ('Variante ' + (item._variante.ticket ?? item._variante.id ?? '')) }}</small>
+                        </div>
+
+                        
+
 
                         <div class="item-meta">
                           <div class="meta-left">
@@ -123,17 +129,28 @@
                           </div>
                         </div>
 
-                        <div class="stock-line">
-                          <template v-if="item._produto?.estoqueUnico !== null && item._produto?.estoqueUnico !== undefined">
-                            Estoque único: {{ item._produto.estoqueUnico }}
-                          </template>
-                          <template v-else-if="item.ticket !== null && item._produto?.variantes[String(item.ticket)] !== undefined">
-                            Estoque variante: {{ item._produto.variantes[String(item.ticket)] }}
+                                                <div class="stock-line">
+                          <!-- Estoque (mapa) ou a partir do objeto variante -->
+                          <template v-if="getVariantStock(item) !== null">
+                            Estoque variante: {{ getVariantStock(item) }}
                           </template>
                           <template v-else>
                             Estoque: <em>não disponível</em>
                           </template>
+
+                          <!-- Campos adicionais da variante (cor, tamanho, aroma, etc.) -->
+                          <template v-if="getVariantObj(item)">
+                            <span v-if="getVariantObj(item).cor"> · Cor: {{ getVariantObj(item).cor }}</span>
+                            <span v-if="getVariantObj(item).tamanho"> · Tamanho: {{ getVariantObj(item).tamanho }}</span>
+                            <span v-if="getVariantObj(item).aroma"> · Aroma: {{ getVariantObj(item).aroma }}</span>
+
+                            <!-- mostra automaticamente outros campos escalares presentes -->
+                            <template v-for="(val, key) in extraVariantFields(getVariantObj(item))" :key="key">
+                              <span v-if="val"> · {{ prettyLabel(key) }}: {{ val }}</span>
+                            </template>
+                          </template>
                         </div>
+
                       </div>
                     </div>
                   </div>
@@ -207,6 +224,7 @@ const pagamentoOptions = [
   { value: 'Dinheiro Vivo', label: 'Dinheiro Vivo' },
   { value: 'Cartão de Crédito', label: 'Cartão de Crédito' },
 ];
+
 
 // --- Helpers para detectar chaves de totais (sem/com frete)
 function detectTotalsKeys(pedido: any) {
@@ -286,6 +304,70 @@ function formatMoney(n: any) {
   if (!Number.isFinite(num)) return currencyFormatter.format(0);
   return currencyFormatter.format(num);
 }
+
+
+// -------------------- helpers para variantes --------------------
+function getVariantObj(item: any) {
+  const prod = item._produto || item.produto || item.produtoResumo || {};
+  const tryArrays = [
+    prod.variantes,
+    prod.rawProduct && prod.rawProduct.variantes,
+    prod._produto && prod._produto.variantes
+  ];
+  const ticketStr = String(item.ticket ?? item.ticketPai ?? item.id ?? '');
+
+  for (const arr of tryArrays) {
+    if (Array.isArray(arr)) {
+      const found = arr.find((v: any) => {
+        return String(v.ticket ?? v.id ?? v._id) === ticketStr;
+      });
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function getVariantStock(item: any) {
+  const prod = item._produto || item.produto || item.produtoResumo || {};
+  const ticketStr = String(item.ticket ?? '');
+  // 1) se existe um map (obj) de variantes com chave = ticket
+  if (prod.variantes && !Array.isArray(prod.variantes) && (prod.variantes[ticketStr] !== undefined)) {
+    return prod.variantes[ticketStr];
+  }
+  // 2) tenta achar a variante no array e ler estoqueVariante
+  const v = getVariantObj(item);
+  if (v && (v.estoqueVariante !== undefined && v.estoqueVariante !== null)) return v.estoqueVariante;
+  // 3) checar nomes alternativos
+  if (v) {
+    if (v.stock !== undefined) return v.stock;
+    if (v.estoque !== undefined) return v.estoque;
+  }
+  return null;
+}
+
+function extraVariantFields(variantObj: any) {
+  if (!variantObj || typeof variantObj !== 'object') return {};
+  const skip = new Set(['id','ticket','estoqueVariante','stock','estoque','createdAt','updatedAt']);
+  const out: Record<string, any> = {};
+  for (const k of Object.keys(variantObj)) {
+    if (!skip.has(k) && (typeof variantObj[k] === 'string' || typeof variantObj[k] === 'number' || variantObj[k] === null)) {
+      out[k] = variantObj[k];
+    }
+  }
+  return out;
+}
+
+function prettyLabel(key: string) {
+  const map: Record<string,string> = {
+    cor: 'Cor',
+    tamanho: 'Tamanho',
+    aroma: 'Aroma',
+    material: 'Material'
+  };
+  return map[key] || (key.charAt(0).toUpperCase() + key.slice(1));
+}
+// -------------------- fim helpers --------------------
+
 
 /**
  * displayKeys: lista as chaves do pedido que devem aparecer no bloco de detalhes.
@@ -605,7 +687,86 @@ async function saveQuantidade(pedido: any, idx: number, item: any) {
   }
 }
 
-/* carregamento + enrich */
+// ----------------- HELPERS (cole isto no topo do <script setup> ou antes da função load) -----------------
+function safeGetFotos(produto: any) {
+  if (!produto) return [];
+  if (produto.fotos && Array.isArray(produto.fotos) && produto.fotos.length) return produto.fotos;
+  if (produto.image && typeof produto.image === 'string') return [{ url: produto.image }];
+  return [];
+}
+
+function escolherImagemProduto(produto: any, variante: any) {
+  if (variante) {
+    if (typeof variante.image === 'string' && variante.image.trim()) return variante.image;
+    if (Array.isArray(variante.fotos) && variante.fotos.length) {
+      return variante.fotos[0].url ?? variante.fotos[0].formats?.thumbnail?.url ?? null;
+    }
+  }
+  const fotos = safeGetFotos(produto);
+  if (fotos.length) return fotos[0].url ?? fotos[0].formats?.thumbnail?.url ?? fotos[0].url_full ?? null;
+  if (produto && typeof produto.image === 'string') return produto.image;
+  return null;
+}
+
+/**
+ * Encontra a variante correspondente usando EXATAMENTE o campo `ticket` do item.
+ * Retorna null se não encontrar. (Fallback: se o produto tiver apenas 1 variante, retorna ela.)
+ */
+// substitua a função antiga por esta versão mais robusta
+function findVariantByTicket(item: any, produto: any) {
+  if (!produto || !Array.isArray(produto.variantes) || produto.variantes.length === 0) return null;
+
+  // 1) campos prioritários onde esperamos o ticket da variante
+  const primaryFields = ['ticket', 'ticketVariante', 'ticket_variante', 'ticket_var', 'varianteTicket', 'ticket_id'];
+
+  for (const field of primaryFields) {
+    if (item[field] !== undefined && item[field] !== null && String(item[field]) !== '') {
+      const val = String(item[field]);
+      const found = produto.variantes.find((v: any) => String(v.ticket) === val || String(v.id) === val);
+      if (found) return found;
+    }
+  }
+
+  // 2) outros nomes possíveis (compatibilidade)
+  if (item.variante_id || item.variante_id === 0) {
+    const val = String(item.variante_id);
+    const found = produto.variantes.find((v: any) => String(v.ticket) === val || String(v.id) === val);
+    if (found) return found;
+  }
+
+  // 3) varredura dos valores escalares do item: procura qualquer valor que case com ticket/id da variante
+  //    (útil quando o campo foi salvo com um nome inesperado)
+  try {
+    const scalarValues = new Set<string>();
+    for (const k of Object.keys(item)) {
+      const v = item[k];
+      if (v === null || v === undefined) continue;
+      // só considere primitivos simples
+      if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') {
+        scalarValues.add(String(v));
+      }
+    }
+    if (scalarValues.size > 0) {
+      for (const variant of produto.variantes) {
+        const vt = String(variant.ticket ?? variant.id ?? '');
+        if (scalarValues.has(vt)) return variant;
+        // também verifique id em string
+        if (variant.id !== undefined && scalarValues.has(String(variant.id))) return variant;
+      }
+    }
+  } catch (err) {
+    // não falhar: se objeto reativo dá problema ao iterar, ignoramos aqui e seguimos
+    console.debug('findVariantByTicket: varredura fallback falhou', err);
+  }
+
+  // 4) fallback opcional: se só houver 1 variante, retorne ela (se preferir, remova este fallback)
+  if (produto.variantes.length === 1) return produto.variantes[0];
+
+  return null;
+}
+
+
+// ----------------- FUNÇÃO load() (substitua a sua existente por esta) -----------------
 async function load() {
   loading.value = true;
   error.value = null;
@@ -613,6 +774,7 @@ async function load() {
     const all = await getAllPedidosAllPages('*', 100);
     pedidos.value = all || [];
 
+    // coletar ticketPai únicos
     const set = new Set<string>();
     for (const pedido of pedidos.value) {
       const itens = Array.isArray(pedido.itens_sacola) ? pedido.itens_sacola : [];
@@ -625,12 +787,63 @@ async function load() {
     const ticketPais = Array.from(set);
     if (ticketPais.length > 0) {
       const produtosMap = await getProdutosPorTicketPaises(ticketPais);
+
+      // log geral para inspeção
+      console.log('🧩 produtosMap retornado:', produtosMap);
+
+      const notFoundTickets: string[] = [];
+
+      // enrich dos itens: produto, variante (por ticket) e imagem pronta
       for (const pedido of pedidos.value) {
         const itens = Array.isArray(pedido.itens_sacola) ? pedido.itens_sacola : [];
         for (const it of itens) {
           const tp = String(it?.ticketPai ?? it?.ticket_pai ?? '');
-          it._produto = produtosMap[tp] ?? null;
+          const produto = produtosMap?.[tp] ?? null;
+          it._produto = produto;
+
+          if (!produto) {
+            notFoundTickets.push(tp);
+            it._variante = null;
+            it._imagemExibicao = null;
+            continue;
+          }
+
+
+
+          // debug: imprimir os campos primitivos do item para ver onde o ticket da variante foi salvo
+const itemScalars: Record<string,string> = {};
+for (const k of Object.keys(it)) {
+  const v = it[k];
+  if (v === null || v === undefined) continue;
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') itemScalars[k] = String(v);
+}
+console.log('🔎 campos escalares do item (para corresponder variante):', itemScalars);
+
+
+
+
+          // encontra a variante usando o campo `ticket` do item
+          const variante = findVariantByTicket(it, produto);
+          it._variante = variante;
+
+          // imagem pronta para exibição (prioriza variante)
+          it._imagemExibicao = escolherImagemProduto(produto, variante);
+
+          // log detalhado por item (útil para debugging)
+          console.log('📦 item resolvido =>', {
+            ticketPai: tp,
+            itemOriginal: it,
+            produtoResumo: produto ? { id: produto.id ?? produto.documentId ?? null, title: produto.title ?? produto.nome } : null,
+            varianteResumo: variante ? { id: variante.id ?? null, ticket: variante.ticket ?? null, estoqueVariante: variante.estoqueVariante ?? null } : null,
+            imagem: it._imagemExibicao
+          });
         }
+      }
+
+      if (notFoundTickets.length > 0) {
+        // remove duplicados e loga
+        const uniq = Array.from(new Set(notFoundTickets));
+        console.warn('Tickets sem produto retornado (verificar consulta):', uniq);
       }
     }
   } catch (err: any) {
@@ -640,6 +853,13 @@ async function load() {
     loading.value = false;
   }
 }
+
+
+
+
+
+
+
 function reload() { load(); }
 
 onMounted(() => { load(); });
