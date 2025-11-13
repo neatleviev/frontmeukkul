@@ -434,7 +434,7 @@ onBeforeUnmount(() => {
   pointer-events: none;
   display: inline-flex;
   transform-origin: 50% 60%;
-  font-size: 1.20rem;
+  font-size: 1.5rem;
   filter: drop-shadow(0 4px 10px rgba(213,106,160,0.08));
   animation: imageFlameFloat 2.6s ease-in-out infinite;
   /* um leve padding para não colar na borda da imagem */
