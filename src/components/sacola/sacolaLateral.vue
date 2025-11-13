@@ -141,7 +141,7 @@
   para realizar a retirada do seu pedido. 
   O endereço pode ser consultado diretamente com nossa atendente pelo WhatsApp 
   após a finalização da sua compra.<br><br>
-  Nossos horários de retirada são das <strong>14h30 às 22h00</strong>.
+  Nossos horários de retirada são das <strong>14h30 às 21h00</strong>.
 </p>
 
 
@@ -252,7 +252,7 @@
   Nesse modo de pagamento, você realiza o pagamento presencialmente, no momento da entrega, 
   utilizando o seu cartão de crédito. 
   <strong>Atenção:</strong> o cartão deve possuir a função de aproximação (NFC), 
-  pois utilizamos um sistema de pagamento com tecnologia embarcada em smartphones.<br><br>
+  pois utilizamos um sistema de pagamento com tecnologia embarcada em smartphones, em até 12x com acrécimo da infinitePay.<br><br>
   <span v-if="opcaoEntrega === 'uber'" class="text-red-600">
     Esse modo <strong>não pode ser escolhido</strong> se você selecionou a opção de entrega via Uber (entrega no Meukkul).
   </span>
