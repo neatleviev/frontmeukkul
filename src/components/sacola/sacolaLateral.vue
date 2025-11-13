@@ -163,7 +163,7 @@
   ou <strong>99 Entrega</strong>, garantindo que o processo ocorra de forma rápida e eficiente.<br><br>
   A <strong>localização</strong> pode ser consultada diretamente com nossa atendente 
   pelo <strong>WhatsApp</strong> após a finalização da sua compra.<br><br>
-  Nossos horários de atendimento e retirada são das <strong>14h30 às 22h00</strong>.
+  Nossos horários de atendimento e retirada são das <strong>14h30 às 21h00</strong>.
 </p>
 
 
