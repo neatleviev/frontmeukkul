@@ -983,7 +983,7 @@ function onMeuBrindeClick() {
 
   // Se o fluxo anterior definiu explicitamente o destino, usa ele; senão,
   // mantém compatibilidade com a regra original (total >= 60 => 194, else 191)
-  const prateleiraId = brindeTargetId.value ?? (total.value >= LIMIAR_BRINDE ? 194 : 191)
+  const prateleiraId = brindeTargetId.value ?? (total.value >= LIMIAR_BRINDE ? 200 : 199)
 
   // fechar a sacola e direcionar para a prateleira de brindes apropriada
   fecharSacola()
@@ -1205,8 +1205,8 @@ watch(
         return String(item?.prateleiraId ?? item?.prateleira?.id ?? '')
       }
 
-      const prateleirasVIP = ['194']
-      const prateleirasPermitidasParaBrindeGratis = ['191']
+      const prateleirasVIP = ['200']
+      const prateleirasPermitidasParaBrindeGratis = ['199']
 
       sacola.itens.forEach((item: any, idx: number) => {
         try {
@@ -1314,10 +1314,10 @@ watch(
       const isPrecoZero = Number(lastItem.preco) === 0
 
       // Prateleiras bloqueadas (VIP)
-      const prateleirasVIP = ['194']
+      const prateleirasVIP = ['200']
 
       // Prateleiras liberadas para brindes grátis
-      const prateleirasPermitidasParaBrindeGratis = ['191']
+      const prateleirasPermitidasParaBrindeGratis = ['199']
 
       // Regra final: só é considerado "VIP bloqueado" se for da prateleira 194
       // ou se for brinde gratuito fora da prateleira 191
@@ -1351,7 +1351,7 @@ watch(
 // ---------- substituir função removerProdutosPrecoZero existente ----------
 function removerProdutosPrecoZero() {
   // Prateleiras onde brindes grátis são permitidos (não removemos itens nessas prateleiras)
-  const prateleirasPermitidasParaBrindeGratis = ['191']
+  const prateleirasPermitidasParaBrindeGratis = ['199']
 
   // extrai id da prateleira do item (tenta vários campos)
   function extractPrateleiraIdFrom(item: any) {
@@ -1405,7 +1405,7 @@ function removerProdutosPrecoZero() {
 
 function garantirUnicoBrindeEQuantidade() {
   // encontra todos os indices de itens com preco 0
-  const prateleirasPermitidasParaBrindeGratis = ['191']
+  const prateleirasPermitidasParaBrindeGratis = ['199']
 
 const zeroIndices: number[] = []
 sacola.itens.forEach((item: any, idx: number) => {
@@ -1467,7 +1467,7 @@ function checarTransicaoLimiar(prev: number, atual: number) {
       }
 
       brindeLiberado.value = false
-      brindeTargetId.value = 194
+      brindeTargetId.value = 200
       abrirSacola()
       return
     }
@@ -1484,7 +1484,7 @@ function checarTransicaoLimiar(prev: number, atual: number) {
       }
 
       brindeLiberado.value = false
-      brindeTargetId.value = 191
+      brindeTargetId.value = 199
       avisoExtra.value = `Seu subtotal ficou abaixo de R$ ${LIMIAR_BRINDE.toFixed(2)}. Verifique sua sacola.`
       setTimeout(() => {
         if (avisoExtra.value?.startsWith('Seu subtotal ficou abaixo')) avisoExtra.value = ''
@@ -1541,7 +1541,7 @@ watch(
 
         // Atualiza estado do UI/flow
         brindeLiberado.value = false
-        brindeTargetId.value = 194 // destino quando chegou em >= limiar
+        brindeTargetId.value = 200 // destino quando chegou em >= limiar
         abrirSacola()
         return
       }
@@ -1558,7 +1558,7 @@ watch(
         }
 
         brindeLiberado.value = false
-        brindeTargetId.value = 191 // destino quando ficou abaixo do limiar
+        brindeTargetId.value = 199 // destino quando ficou abaixo do limiar
         avisoExtra.value = `Seu subtotal ficou abaixo de R$ ${LIMIAR_BRINDE.toFixed(2)}. Verifique sua sacola.`
         setTimeout(() => {
           if (avisoExtra.value?.startsWith('Seu subtotal ficou abaixo')) avisoExtra.value = ''
