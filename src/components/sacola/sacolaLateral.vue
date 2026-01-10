@@ -648,7 +648,7 @@ const brindeLiberado = ref<boolean>(false)
 
 // ID destino que o botão "Escolher meu brinde" deve navegar
 // será definido automaticamente ao detectar travessias do limiar.
-// Valores possíveis: 191 (prateleira de brindes padrão) ou 194 (brinde para >=60)
+// Valores possíveis: 199 (prateleira de brindes padrão) ou 200 (brinde para >=60)
 const brindeTargetId = ref<number | null>(null)
 
 
@@ -982,7 +982,7 @@ function onMeuBrindeClick() {
   removerProdutosPrecoZero()
 
   // Se o fluxo anterior definiu explicitamente o destino, usa ele; senão,
-  // mantém compatibilidade com a regra original (total >= 60 => 194, else 191)
+  // mantém compatibilidade com a regra original (total >= 60 => 200, else 199)
   const prateleiraId = brindeTargetId.value ?? (total.value >= LIMIAR_BRINDE ? 200 : 199)
 
   // fechar a sacola e direcionar para a prateleira de brindes apropriada
@@ -1319,8 +1319,8 @@ watch(
       // Prateleiras liberadas para brindes grátis
       const prateleirasPermitidasParaBrindeGratis = ['199']
 
-      // Regra final: só é considerado "VIP bloqueado" se for da prateleira 194
-      // ou se for brinde gratuito fora da prateleira 191
+      // Regra final: só é considerado "VIP bloqueado" se for da prateleira 200
+      // ou se for brinde gratuito fora da prateleira 199
       const isVipBrinde =
         prateleirasVIP.includes(itemPrateleiraId) ||
         (isPrecoZero && !prateleirasPermitidasParaBrindeGratis.includes(itemPrateleiraId)) ||
@@ -1439,9 +1439,9 @@ sacola.itens.forEach((item: any, idx: number) => {
 /* detecta transição de <LIMIAR para >=LIMIAR e vice-versa usando apenas total
    Comportamento desejado:
    - < 60 -> >= 60: NÃO redirecionar automaticamente; abrir sacola, exibir mensagem,
-                   mostrar botão "Escolher meu brinde" e setar brindeTargetId = 194
+                   mostrar botão "Escolher meu brinde" e setar brindeTargetId = 200
    - >= 60 -> < 60: NÃO redirecionar automaticamente; remover brindes inválidos,
-                   mostrar botão "Escolher meu brinde" e setar brindeTargetId = 191
+                   mostrar botão "Escolher meu brinde" e setar brindeTargetId = 199
 */
 function checarTransicaoLimiar(prev: number, atual: number) {
   const antesMenor = prev < LIMIAR_BRINDE
