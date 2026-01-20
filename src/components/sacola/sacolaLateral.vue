@@ -496,7 +496,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineExpose, watch, onMounted, nextTick, onBeforeUnmount  } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount  } from 'vue'
 import { useRouter, useRoute  } from 'vue-router'
 import { useSacolaStore } from '@/stores/useSacolaStore'
 import { atualizarEstoqueSacola, buscarProdutoPorTicketPai, criarPedidoStrapi, mapEntregaToEnum, mapPagamentoToEnum } from '@/services/strapi'
