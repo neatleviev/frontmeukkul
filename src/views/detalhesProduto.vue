@@ -100,22 +100,23 @@
     <button
       v-for="(f, idx) in product.fotos"
       :key="f.url + '-' + idx"
-      @click="goToImage(idx)"
-      :aria-label="`Ir para imagem ${idx + 1}`"
+      @click="goToImage(Number(idx))"
+      :aria-label="`Ir para imagem ${Number(idx) + 1}`"
       :class="[
         'flex items-center justify-center rounded border bg-white transition-all duration-200 hover:opacity-80',
-        { 'ring-2 ring-offset-1 ring-[#d56aa0]': isIndexVisible(idx) }
+        { 'ring-2 ring-offset-1 ring-[#d56aa0]': isIndexVisible(Number(idx)) }
       ]"
       style="flex: 0 0 auto;"
     >
       <img
         :src="f.url"
-        :alt="f.name || `miniatura ${idx + 1}`"
+        :alt="f.name || `miniatura ${Number(idx) + 1}`"
         class="object-contain rounded"
         :class="['w-16 h-16 md:w-20 md:h-10']"
         draggable="false"
       />
     </button>
+
   </div>
 </div>
 
