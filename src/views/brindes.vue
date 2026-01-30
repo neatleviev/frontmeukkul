@@ -48,6 +48,7 @@ async function fetchPrateleira(id: string) {
       estoqueUnico: p.estoqueUnico,
       variantes: p.variantes ?? [],
       ticketPai: p.ticketPai,
+      origemPrateleiraId: Number(prateleiraId.value),
     }))
   } catch (e) {
     console.error('Erro ao buscar prateleira:', e)
