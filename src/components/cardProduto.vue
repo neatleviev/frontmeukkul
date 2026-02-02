@@ -17,7 +17,7 @@
       </div>
 
       <!-- Ícone de fogo (colocado no canto superior direito da imagem) -->
-      <span class="image-flame select-none" aria-hidden="true">🧑🏻‍🎄</span>
+      <span class="image-flame select-none" aria-hidden="true">🥳</span>
     <div
       class="relative  w-full h-60 overflow-hidden  bg-white rounded-xl"
       v-if="product.fotos?.length"
