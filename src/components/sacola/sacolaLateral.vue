@@ -69,6 +69,8 @@
             ]"
             aria-label="Primeiro nome"
             autocomplete="given-name"
+             @blur="avancarParaEntregaSePossivel"
+              @keydown.enter.prevent="avancarParaEntregaSePossivel"
           />
 
           <!-- Segundo: Select Entrega (desabilitado até nome válido) -->
@@ -747,16 +749,16 @@ watch(clienteNome, (novo: string) => {
 })
 
 /* Quando nomeValido transitar de false -> true, focar e abrir o select de entrega */
-watch(nomeValido, (novo: boolean, antigo: boolean) => {
-  if (novo && !antigo) {
-    nextTick(() => {
-      // foco e tentativa de abrir o select nativo
-      if (entregaSelectRef.value) {
-        openNativeSelect(entregaSelectRef.value)
-      }
-    })
-  }
-})
+function avancarParaEntregaSePossivel() {
+  if (!nomeValido.value) return
+
+  nextTick(() => {
+    if (entregaSelectRef.value) {
+      openNativeSelect(entregaSelectRef.value)
+    }
+  })
+}
+
 
 /* Select entrega */
 function onSelectEntregaChange(e: Event) {
