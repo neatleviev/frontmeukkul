@@ -477,21 +477,22 @@
     </div>
 
     <!-- Botão Finalizar (agora só aparece após brindeLiberado) -->
-    <div
-      v-if="!mostrandoOverlay && podeFinalizar && brindeLiberado"
-      class="p-4 flex justify-center items-center cursor-pointer 
-             bg-stone-950 text-stone-50 
-             hover:shadow-[0_0_25px_rgba(213,106,160,0.9)] 
-             hover:scale-105 
-             active:scale-105
-             active:shadow-[0_0_25px_rgba(213,106,160,0.9)]
-             transition duration-100 ease-in-out rounded-lg"
-      @click="enviarPedidoParaWhatsApp"
-      role="button"
-      aria-label="Finalizar Compra"
-    >
-      Finalizar Minha Compra
-    </div>
+   <button
+  v-if="!mostrandoOverlay && podeFinalizar && brindeLiberado"
+  type="button"
+  class="p-4 w-full flex justify-center items-center cursor-pointer 
+         bg-stone-950 text-stone-50 
+         hover:shadow-[0_0_25px_rgba(213,106,160,0.9)] 
+         hover:scale-105 
+         active:scale-105
+         active:shadow-[0_0_25px_rgba(213,106,160,0.9)]
+         transition duration-100 ease-in-out rounded-lg"
+  @click="enviarPedidoParaWhatsApp"
+  aria-label="Finalizar Compra"
+>
+  Finalizar Minha Compra
+</button>
+
   </div>
 </template>
 
@@ -1004,7 +1005,9 @@ async function enviarPedidoParaWhatsApp() {
   if (!podeFinalizar.value) return
 
   // Abre uma aba em branco antes dos awaits para evitar bloqueio de pop-up
-  const previewWin = window.open('', '_blank')
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+const previewWin = isIOS ? null : window.open('', '_blank')
+
 
   try {
     // (1) Atualiza estoque - mantém sua lógica
@@ -1152,12 +1155,15 @@ async function enviarPedidoParaWhatsApp() {
     }
 
     const waUrl = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(mensagem)}`
-    if (previewWin && !previewWin.closed) {
-      // redireciona a janela previamente criada
-      previewWin.location.href = waUrl
-    } else {
-      window.open(waUrl, '_blank')
-    }
+
+if (previewWin && !previewWin.closed) {
+  // Melhor que href: evita alguns comportamentos estranhos no Safari e não "empilha" histórico
+  previewWin.location.replace(waUrl)
+} else {
+  // Fallback MAIS COMPATÍVEL com iPhone (pop-up pode ser bloqueado, mas navegar na mesma aba funciona)
+  window.location.assign(waUrl)
+}
+
 
     // (7) Limpa sacola e UI
     sacola.limparSacola()
