@@ -489,10 +489,12 @@
          active:scale-105
          active:shadow-[0_0_25px_rgba(213,106,160,0.9)]
          transition duration-100 ease-in-out rounded-lg"
+  :disabled="enviandoPedido"
+  :class="{ 'opacity-60 cursor-not-allowed hover:scale-100 active:scale-100': enviandoPedido }"
   @click="enviarPedidoParaWhatsApp"
   aria-label="Finalizar Compra"
 >
-  Finalizar Minha Compra
+  {{ enviandoPedido ? 'Finalizando...' : 'Finalizar Minha Compra' }}
 </button>
 
   </div>
@@ -648,6 +650,30 @@ const ignorePagamentoWatcher = ref<boolean>(false)
 
 /* ------------------- NOVO FLAG: controle de liberação do botão finalizar após "meu brinde" ------------------- */
 const brindeLiberado = ref<boolean>(false)
+
+/* ------------------- NOVO FLAG: trava para evitar pedido duplicado (duplo clique / toque) ------------------- */
+const enviandoPedido = ref<boolean>(false)
+
+
+  /* ------------------- ANTI-DUPLICAÇÃO: "assinatura" do pedido atual ------------------- */
+function assinaturaPedido() {
+  const items = sacola.itens.map((i: any) => ({
+    ticketPai: i.ticketPai,
+    ticket: i.selectedVariante?.ticket ?? null,
+    qtd: i.quantidadeSelecionada,
+    preco: i.preco,
+  }))
+
+  return JSON.stringify({
+    items,
+    entrega: opcaoEntrega.value,
+    pagamento: opcaoPagamento.value,
+    subtotal: Number(subtotal.value.toFixed(2)),
+    frete: Number(frete.value.toFixed(2)),
+    total: Number(total.value.toFixed(2)),
+    nome: (clienteNome.value || '').trim().split(' ')[0] || '',
+  })
+}
 
 // ID destino que o botão "Escolher meu brinde" deve navegar
 // será definido automaticamente ao detectar travessias do limiar.
@@ -1006,12 +1032,30 @@ function onMeuBrindeClick() {
 async function enviarPedidoParaWhatsApp() {
   if (!podeFinalizar.value) return
 
+    // trava contra clique duplo / toque duplo
+  if (enviandoPedido.value) return
+  enviandoPedido.value = true
+
   // Abre uma aba em branco antes dos awaits para evitar bloqueio de pop-up
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-const previewWin = isIOS ? null : window.open('', '_blank')
+  const previewWin = isIOS ? null : window.open('', '_blank')
 
 
   try {
+
+        // anti-duplicação: bloqueia reenvio do MESMO pedido por 2 minutos
+    const sig = assinaturaPedido()
+    const lastSig = sessionStorage.getItem('last_order_sig')
+    const lastAt = Number(sessionStorage.getItem('last_order_at') || '0')
+
+    if (lastSig === sig && Date.now() - lastAt < 2 * 60 * 1000) {
+      alert('Você já finalizou este pedido há pouco. Se precisar, fale conosco no WhatsApp.')
+      if (previewWin && !previewWin.closed) previewWin.close()
+      return
+    }
+
+    
+
     // (1) Atualiza estoque - mantém sua lógica
     const estoquePayload = sacola.itens.map((item: any) => {
       if (item.selectedVariante?.ticket) {
@@ -1077,6 +1121,9 @@ const previewWin = isIOS ? null : window.open('', '_blank')
     }
 
     const pedidoCriado = await criarPedidoStrapi(payload)
+    // marca como "pedido criado" (a partir daqui faz sentido bloquear duplicação ao voltar)
+    sessionStorage.setItem('last_order_sig', sig)
+    sessionStorage.setItem('last_order_at', String(Date.now()))
 
     // Extrai código único (resiliente a formatos Strapi)
     const extrairCodigoUnico = (res: any) => {
@@ -1172,10 +1219,18 @@ if (previewWin && !previewWin.closed) {
     resetarFormulario()
     fecharSacola()
 
-  } catch (err) {
+    } catch (err) {
     console.error('Erro ao criar pedido / abrir WhatsApp:', err)
     if (previewWin && !previewWin.closed) previewWin.close()
     alert('Ocorreu um erro ao processar seu pedido.')
+
+    // 🔴 se deu erro, remove qualquer bloqueio salvo
+    sessionStorage.removeItem('last_order_sig')
+    sessionStorage.removeItem('last_order_at')
+
+  } finally {
+    // se der erro, libera o botão para tentar novamente
+    enviandoPedido.value = false
   }
 }
 
