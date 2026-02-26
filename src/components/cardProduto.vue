@@ -56,7 +56,7 @@
 
     <slot name="top" />
 
-    <div class="text-sm text-gray-700 mt-3 flex flex-col gap-2 mt-auto" @click.stop>
+    <div class="text-sm text-gray-700 mt-2 md:mt-3 flex flex-col gap-1 md:gap-2 mt-auto" @click.stop>
       <template v-if="product.variantes?.length">
         <label class="block font-medium text-gray-800">Variações disponíveis:</label>
 
@@ -95,37 +95,37 @@
       </template>
 
       <template v-if="(product.variantes?.length && selectedVariante) || (!product.variantes?.length && product.estoqueUnico)">
-        <div class="flex justify-between items-center mt-2">
+        <div class="flex flex-col md:flex-row justify-between items-stretch md:items-center mt-2 gap-2 md:gap-4">
+        <!-- select quantidade - em mobile fica acima do botão, em desktop ao lado -->
+        <div class="quantity-selector flex items-center justify-between w-full md:w-fit rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white order-1 md:order-2">
           <button
-            @click.stop="adicionarNaSacola"
-            class="text-sm font-bold px-5 py-2.5 rounded-xl cursor-pointer transition-all duration-300 active:scale-95 iphone-btn"
-            :disabled="estoqueDisponivel <= 0"
+            @click.stop="diminuirQuantidade"
+            class="quantity-btn flex-1 md:flex-none md:w-10 h-10 md:h-9 flex items-center justify-center text-lg font-medium hover:bg-gray-100 active:scale-95 transition cursor-pointer disabled:opacity-50"
           >
-            <span class="iphone-btn-text">{{ estoqueDisponivel <= 0 ? 'Tudo adicionado' : 'Pegar agora' }}</span>
+            −
           </button>
-      <!-- select quantidade -->
-       <div class="flex items-center justify-between w-fit rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white">
-        <button
-          @click.stop="diminuirQuantidade"
-          class="w-10 h-7 flex items-center justify-center text-lg font-medium hover:bg-gray-100 active:scale-95 transition cursor-pointer disabled:opacity-50"
-        >
-          −
-        </button>
 
-        <span class="w-12 text-center text-base font-semibold select-none">
-          {{ quantidade }}
-        </span>
+          <span class="flex-1 md:flex-none md:w-12 text-center text-base font-semibold select-none">
+            {{ quantidade }}
+          </span>
+
+          <button
+            @click.stop="aumentarQuantidade"
+            class="quantity-btn flex-1 md:flex-none md:w-10 h-10 md:h-9 flex items-center justify-center text-lg font-medium hover:bg-gray-100 active:scale-95 transition cursor-pointer disabled:opacity-50"
+            :disabled="quantidade >= estoqueDisponivel"
+          >
+            +
+          </button>
+        </div>
 
         <button
-          @click.stop="aumentarQuantidade"
-          class="w-10 h-7 flex items-center justify-center text-lg font-medium hover:bg-gray-100 active:scale-95 transition cursor-pointer disabled:opacity-50"
-          :disabled="quantidade >= estoqueDisponivel"
+          @click.stop="adicionarNaSacola"
+          class="text-sm font-bold px-5 py-2.5 rounded-xl cursor-pointer transition-all duration-300 active:scale-95 iphone-btn order-2 md:order-1"
+          :disabled="estoqueDisponivel <= 0"
         >
-          +
+          <span class="iphone-btn-text">{{ estoqueDisponivel <= 0 ? 'Tudo adicionado' : 'Pegar agora' }}</span>
         </button>
       </div>
-
-        </div>
         <span v-if="estoqueDisponivel <= 0" class="text-rose-600 text-xs mt-1">Todas as unidades disponíveis já estão na sacola.</span>
       </template>
 
@@ -541,6 +541,28 @@ onBeforeUnmount(() => {
   font-weight: 700;
   color: #fff;
   letter-spacing: -0.2px;
+}
+
+/* Seletor de quantidade - estilo retangular */
+.quantity-selector {
+  border-radius: 12px;
+}
+
+.quantity-btn {
+  min-width: 44px;
+}
+
+/* Ajustes específicos para mobile */
+@media (max-width: 640px) {
+  .quantity-selector {
+    border-radius: 12px;
+    height: 44px;
+  }
+  
+  .quantity-btn {
+    min-width: 50px;
+    height: 44px;
+  }
 }
 
 /* borda igual ao card para o controle de quantidade */
