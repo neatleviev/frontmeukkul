@@ -12,7 +12,13 @@
     <!-- preço -->
     <div class="absolute top-1 left-0 select-none price-badge-wrapper">
         <div class=" flex flex-col items-end px-2 py-1 rounded-xl">
-          <span class="price-premium">R$ {{ (product.preco ?? 0).toFixed(2) }}</span>
+          <span class="price-premium" style="
+            background: linear-gradient(180deg, #34C759 0%, #30B350 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 800;
+          ">R$ {{ (product.preco ?? 0).toFixed(2) }}</span>
         </div>
       </div>
 
@@ -43,7 +49,7 @@
       ref="titleEl"
       class="product-title text-lg font-semibold mb-1 leading-tight flex items-center gap-2 select-none"
     >
-      <span class="name bg-clip-text  text-[#E2185C]">
+      <span class="name bg-clip-text  text-zinc-950">
         {{ product.nome || 'Sem nome' }}
       </span>
     </h2>
@@ -92,10 +98,10 @@
         <div class="flex justify-between items-center mt-2">
           <button
             @click.stop="adicionarNaSacola"
-            class="text-sm font-medium px-3 py-1.5 rounded cursor-pointer transition active:scale-95 flame-btn"
+            class="text-sm font-bold px-5 py-2.5 rounded-xl cursor-pointer transition-all duration-300 active:scale-95 iphone-btn"
             :disabled="estoqueDisponivel <= 0"
           >
-            <span class="flame-btn-text">{{ estoqueDisponivel <= 0 ? 'Tudo adicionado' : 'pegar' }}</span>
+            <span class="iphone-btn-text">{{ estoqueDisponivel <= 0 ? 'Tudo adicionado' : 'Pegar agora' }}</span>
           </button>
       <!-- select quantidade -->
        <div class="flex items-center justify-between w-fit rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white">
@@ -402,7 +408,7 @@ onBeforeUnmount(() => {
 .price-premium {
   font-size: 1.25rem;     /* tamanho base para desktop/tablet */
   font-weight: 800;
-  color: #E2185C;         /* cor solicitada */
+  
   letter-spacing: -0.3px;
   text-shadow: none;      /* removido shadow para manter cor sólida limpa */
   -webkit-background-clip: initial;
@@ -498,27 +504,43 @@ onBeforeUnmount(() => {
   animation: bounceSmooth 0.6s ease-in-out;
 }
 
-/* Botão pegar */
-.flame-btn {
-  background: transparent;
+/* Botão pegar - estilo iPhone verde */
+.iphone-btn {
+  background: linear-gradient(180deg, #34C759 0%, #30B350 100%);
   border: none;
-  padding: 0;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    0 4px 8px rgba(52, 199, 89, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform-origin: center;
+  will-change: transform;
 }
-.flame-btn:disabled {
+
+.iphone-btn:hover {
+  background: linear-gradient(180deg, #36D160 0%, #32BF55 100%);
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.12),
+    0 6px 12px rgba(52, 199, 89, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Efeito de ampliação quando o card (li pai) é hover */
+.group:hover .iphone-btn {
+  transform: scale(1.05);
+}
+
+.iphone-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  background: linear-gradient(180deg, #9CA3AF 0%, #6B7280 100%);
+  box-shadow: none;
 }
-.flame-btn-text {
+
+.iphone-btn-text {
   display: inline-block;
-  padding: 8px 12px;
-  border-radius: 8px;
   font-weight: 700;
-  background: linear-gradient(90deg,#d56aa0,#f472b6);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  text-shadow: 0 0 8px rgba(213,106,160,0.28);
-  animation: flameTextPulse 1.2s ease-in-out infinite;
+  color: #fff;
+  letter-spacing: -0.2px;
 }
 
 /* borda igual ao card para o controle de quantidade */
@@ -527,12 +549,6 @@ onBeforeUnmount(() => {
 }
 
 /* Keyframes */
-@keyframes flameTextPulse {
-  0% { transform: translateY(0) scale(1); opacity: 1; text-shadow: 0 0 6px rgba(213,106,160,0.18); }
-  50% { transform: translateY(-2px) scale(1.02); opacity: 0.98; text-shadow: 0 0 14px rgba(213,106,160,0.32); }
-  100% { transform: translateY(0) scale(1); opacity: 1; text-shadow: 0 0 6px rgba(213,106,160,0.18); }
-}
-
 @keyframes growPulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.06); }
