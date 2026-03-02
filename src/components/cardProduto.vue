@@ -269,8 +269,7 @@ function selectVariante(variante: any) {
     selectedVariante: variante,
     quantidadeSelecionada: quantidade.value
   }
-  produtoStore.setProdutoSelecionado(produtoComVariante)
-  localStorage.setItem('produtoSelecionado', JSON.stringify(produtoComVariante))
+  produtoStore.setProduto(produtoComVariante)
   dropdownVisible.value = false
 }
 
@@ -348,11 +347,11 @@ function adicionarNaSacola() {
 }
 
 function navegarParaDetalhes() {
-  produtoStore.setProdutoSelecionado(props.product)
-  localStorage.setItem('produtoSelecionado', JSON.stringify(props.product))
-  router.push(`/produto/${props.product.ticketPai}`)
-}
+  produtoStore.setProduto(props.product)
 
+  const id = props.product?.ticketPai ?? props.product?.ticket ?? props.product?.id
+  router.push(`/produto/${id}`)
+}
 const titleEl = ref<HTMLElement | null>(null)
 onMounted(() => {
   const fotos = props.product?.fotos
