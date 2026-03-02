@@ -252,6 +252,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, onBeforeUnmount, computed,reactive } from 'vue'
+import { useRoute } from 'vue-router'
 import { useProdutoStore } from '@/stores/useProdutoStore'
 import { useSacolaStore } from '@/stores/useSacolaStore'
 import BotaoVoltar from '@/components/BotaoVoltar.vue'
@@ -259,8 +260,9 @@ import { buscarProdutoPorTicketPai } from '@/services/strapi'
 
 const produtoStore = useProdutoStore()
 const sacolaStore = useSacolaStore()
+const route = useRoute()
 
-const product = ref<any>(produtoStore.produtoSelecionado)
+const product = ref<any>(null)
 const selectedVariante = ref<any | null>(null)
 const isTouchDevice = ref(false)
 const dropdownOpen = ref(false)
@@ -279,6 +281,43 @@ const isDragging = ref(false)
 const dragStartX = ref(0)
 const dragCurrentX = ref(0)
 const dragThreshold = 50 // pixels necessários para considerar um swipe
+
+
+async function carregarProduto() {
+  const id = Number(route.params.id)
+
+  if (!id) {
+    error.value = 'Link inválido.'
+    return
+  }
+
+  // tenta pegar do cache
+  const cached = produtoStore.getProduto(id)
+
+  if (cached) {
+    product.value = cached
+    return
+  }
+
+  try {
+    const produtoApi = await buscarProdutoPorTicketPai(id)
+
+    if (!produtoApi) {
+      error.value = 'Produto não encontrado.'
+      return
+    }
+
+    const attrs = produtoApi.attributes ?? produtoApi
+    const normalized = { id: produtoApi.id ?? id, ...attrs }
+
+    product.value = normalized
+    produtoStore.setProduto(normalized)
+
+  } catch (e) {
+    error.value = 'Produto não encontrado.'
+  }
+}
+
 
 function getEventX(e: any) {
   if (!e) return 0
@@ -637,7 +676,7 @@ const carregarDescricao = async (): Promise<void> => {
     const localLines = getDescricaoLinesFromObject(product.value)
     if (localLines.length) {
       product.value.descricaoTratada = localLines
-      produtoStore.setProdutoSelecionado(product.value)
+      produtoStore.setProduto(product.value)
       return
     }
     const ticketCandidates = [
@@ -650,7 +689,7 @@ const carregarDescricao = async (): Promise<void> => {
     const ticket = ticketCandidates[0]
     if (!ticket) {
       product.value.descricaoTratada = []
-      produtoStore.setProdutoSelecionado(product.value)
+      produtoStore.setProduto(product.value)
       return
     }
     carregandoDescricao.value = true
@@ -658,15 +697,15 @@ const carregarDescricao = async (): Promise<void> => {
     const apiLines = getDescricaoLinesFromObject(produtoApi?.attributes ?? produtoApi)
     if (!apiLines.length) {
       product.value.descricaoTratada = []
-      produtoStore.setProdutoSelecionado(product.value)
+      produtoStore.setProduto(product.value)
       return
     }
     product.value.descricaoTratada = apiLines
     product.value.descricao = apiLines.join('\n\n')
-    produtoStore.setProdutoSelecionado(product.value)
+    produtoStore.setProduto(product.value)
   } catch (err) {
     product.value.descricaoTratada = []
-    produtoStore.setProdutoSelecionado(product.value)
+    produtoStore.setProduto(product.value)
   } finally {
     carregandoDescricao.value = false
   }
@@ -688,7 +727,7 @@ const ensureFullProductIfNeeded = async (): Promise<void> => {
     const apiLines = getDescricaoLinesFromObject(attrs)
     if (apiLines.length) normalized.descricaoTratada = apiLines
     product.value = normalized
-    produtoStore.setProdutoSelecionado(product.value)
+    produtoStore.setProduto(product.value)
   } catch {}
 }
 
@@ -811,7 +850,7 @@ watch(quantidadeSelecionada, (nova) => {
   }
   if (product.value) {
     product.value.quantidadeSelecionada = quantidadeSelecionada.value
-    localStorage.setItem('produtoSelecionado', JSON.stringify(product.value))
+    
   }
 })
 
@@ -955,22 +994,30 @@ function onKeyDown(e: KeyboardEvent) {
 
 
 
-
 onMounted(() => {
+  carregarProduto() // <- ADICIONAR ESTA LINHA
+
   checkIsMobile()
   window.addEventListener('resize', checkIsMobile)
-  const saved = localStorage.getItem('produtoSelecionado')
-  if (!product.value && saved) product.value = JSON.parse(saved)
-  if (product.value?.selectedVariante) selectedVariante.value = product.value.selectedVariante
+
+  if (product.value?.selectedVariante) {
+    selectedVariante.value = product.value.selectedVariante
+  }
 
   // define default com base no estoque atual (1 ou 0)
   checkAndSetDefaultQty()
 
   if (!product.value) error.value = 'Produto não carregado.'
-  isTouchDevice.value = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-  ensureFullProductIfNeeded().then(() => { if (mostrarDescricao.value) carregarDescricao() }).catch(() => {})
 
-  // *** Suporte a teclado: setas esquerda/direita ***
+  isTouchDevice.value = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+
+  ensureFullProductIfNeeded()
+    .then(() => {
+      if (mostrarDescricao.value) carregarDescricao()
+    })
+    .catch(() => {})
+
+  // suporte teclado
   window.addEventListener('keydown', onKeyDown)
 })
 
@@ -990,7 +1037,12 @@ onBeforeUnmount(() => {
   document.removeEventListener('touchend', endDrag)
 })
 
-
+watch(
+  () => route.params.id,
+  () => {
+    carregarProduto()
+  }
+)
 
 </script>
 
