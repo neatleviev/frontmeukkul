@@ -22,12 +22,12 @@
   :class="{ 'cursor-grab': !isDragging, 'cursor-grabbing': isDragging }"
   style="touch-action: pan-y;" 
   @mousedown.prevent="startDrag"
-  @touchstart.prevent="startDrag"
+  @touchstart="startDrag"
   @mousemove.prevent="onDragging"
-  @touchmove.prevent="onDragging"
+  @touchmove="onDragging"
   @mouseup.prevent="endDrag"
   @mouseleave="endDrag"
-  @touchend.prevent="endDrag"
+  @touchend="endDrag"
 >
   <template v-if="product?.fotos && product.fotos.length">
     <!-- displayCount será 1 ou 2 (computada no script) -->
@@ -90,12 +90,12 @@
     style="max-width: 100%;"
     :class="{'cursor-grab': !thumbIsDragging, 'cursor-grabbing': thumbIsDragging}"
     @mousedown.prevent="startThumbDrag"
-    @touchstart.prevent="startThumbDrag"
+    @touchstart="startThumbDrag"
     @mousemove.prevent="onThumbDragging"
-    @touchmove.prevent="onThumbDragging"
+    @touchmove="onThumbDragging"
     @mouseup.prevent="endThumbDrag"
     @mouseleave="endThumbDrag"
-    @touchend.prevent="endThumbDrag"
+    @touchend="endThumbDrag"
   >
     <!-- aqui ficam os botões das miniaturas -->
     <button
@@ -285,6 +285,10 @@ const dragCurrentX = ref(0)
 const dragThreshold = 50 // pixels necessários para considerar um swipe
 
 
+const dragStartY = ref(0)
+const dragCurrentY = ref(0)
+
+
 async function carregarProduto() {
   carregandoProduto.value = true
   error.value = null
@@ -331,11 +335,21 @@ function getEventX(e: any) {
   return e.clientX ?? 0
 }
 
+function getEventY(e: any) {
+  if (!e) return 0
+  if (e.touches && e.touches.length) return e.touches[0].clientY
+  if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientY
+  return e.clientY ?? 0
+}
+
 function startDrag(e: any) {
   // evita que o click padrão e seleção atuem
   isDragging.value = true
   dragStartX.value = getEventX(e)
   dragCurrentX.value = dragStartX.value
+
+  dragStartY.value = getEventY(e)
+  dragCurrentY.value = dragStartY.value
 
   // Adiciona listeners globais para garantir captura do mouse quando fora do elemento
   document.addEventListener('mousemove', onDragging)
@@ -346,14 +360,24 @@ function startDrag(e: any) {
 
 function onDragging(e: any) {
   if (!isDragging.value) return
+
   const x = getEventX(e)
+  const y = getEventY(e)
+
   dragCurrentX.value = x
-  // opcional: podemos usar dragCurrentX - dragStartX para efeitos visuais (não implementado aqui)
-  // se quisermos prevenir o scroll durante o arrasto horizontal:
-  const delta = Math.abs(dragCurrentX.value - dragStartX.value)
-  if (e.type?.startsWith('touch') && delta > 10) {
-    // impede scroll vertical enquanto o usuário está claramente arrastando horizontalmente
-    e.preventDefault?.()
+  dragCurrentY.value = y
+
+  const dx = dragCurrentX.value - dragStartX.value
+  const dy = dragCurrentY.value - dragStartY.value
+
+  // Só bloqueia o scroll quando o gesto for claramente horizontal
+  if (e.type?.startsWith('touch')) {
+    const absX = Math.abs(dx)
+    const absY = Math.abs(dy)
+
+    if (absX > 10 && absX > absY) {
+      if (e.cancelable) e.preventDefault()
+    }
   }
 }
 
@@ -384,6 +408,9 @@ function endDrag(e: any) {
   // reset valores
   dragStartX.value = 0
   dragCurrentX.value = 0
+
+  dragStartY.value = 0
+  dragCurrentY.value = 0
 }
 // --- FIM: Drag / Swipe support ---
 
@@ -394,12 +421,14 @@ const thumbsEl = ref<HTMLElement | null>(null)
 
 const thumbIsDragging = ref(false)
 const thumbStartX = ref(0)
+const thumbStartY = ref(0) 
 const thumbStartScroll = ref(0)
 const THUMB_DRAG_PASSIVE = { passive: false }
 
 function startThumbDrag(e: any) {
   thumbIsDragging.value = true
   thumbStartX.value = getEventX(e)
+  thumbStartY.value = getEventY(e)
   thumbStartScroll.value = thumbsEl.value ? thumbsEl.value.scrollLeft : 0
 
   document.addEventListener('mousemove', onThumbDragging)
@@ -410,12 +439,25 @@ function startThumbDrag(e: any) {
 
 function onThumbDragging(e: any) {
   if (!thumbIsDragging.value || !thumbsEl.value) return
-  const x = getEventX(e)
-  const dx = x - thumbStartX.value
-  thumbsEl.value.scrollLeft = thumbStartScroll.value - dx
-  if (e.type?.startsWith('touch') && Math.abs(dx) > 10) e.preventDefault?.()
-}
 
+  const x = getEventX(e)
+  const y = getEventY(e)
+
+  const dx = x - thumbStartX.value
+  const dy = y - thumbStartY.value
+
+  thumbsEl.value.scrollLeft = thumbStartScroll.value - dx
+
+  // Só impede o scroll vertical quando o gesto for claramente horizontal
+  if (e.type?.startsWith('touch')) {
+    const absX = Math.abs(dx)
+    const absY = Math.abs(dy)
+
+    if (absX > 10 && absX > absY) {
+      if (e.cancelable) e.preventDefault()
+    }
+  }
+}
 function endThumbDrag(e: any) {
   if (!thumbIsDragging.value) return
   thumbIsDragging.value = false
