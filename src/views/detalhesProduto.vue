@@ -1,5 +1,6 @@
 <template>
-  <div v-if="error" class="text-red-500">{{ error }}</div>
+  <div v-if="carregandoProduto">Carregando...</div>
+  <div v-else-if="error" class="text-red-500">{{ error }}</div>
   <div v-else-if="product" class="relative">
     <!-- Botão + Título -->
     <div class="flex items-center gap-4 mb-1">
@@ -267,6 +268,7 @@ const selectedVariante = ref<any | null>(null)
 const isTouchDevice = ref(false)
 const dropdownOpen = ref(false)
 const error = ref<string | null>(null)
+const carregandoProduto = ref(false)
 
 /** Quantidade pode ser 0 quando não há estoque disponível */
 const quantidadeSelecionada = ref<number>(1)
@@ -284,24 +286,26 @@ const dragThreshold = 50 // pixels necessários para considerar um swipe
 
 
 async function carregarProduto() {
-  const id = Number(route.params.id)
-
-  if (!id) {
-    error.value = 'Link inválido.'
-    return
-  }
-
-  // tenta pegar do cache
-  const cached = produtoStore.getProduto(id)
-
-  if (cached) {
-    product.value = cached
-    return
-  }
+  carregandoProduto.value = true
+  error.value = null
+  product.value = null
 
   try {
-    const produtoApi = await buscarProdutoPorTicketPai(id)
+    const id = Number(route.params.id)
 
+    if (!id) {
+      error.value = 'Link inválido.'
+      return
+    }
+
+    // tenta pegar do cache
+    const cached = produtoStore.getProduto(id)
+    if (cached) {
+      product.value = cached
+      return
+    }
+
+    const produtoApi = await buscarProdutoPorTicketPai(id)
     if (!produtoApi) {
       error.value = 'Produto não encontrado.'
       return
@@ -312,9 +316,10 @@ async function carregarProduto() {
 
     product.value = normalized
     produtoStore.setProduto(normalized)
-
   } catch (e) {
     error.value = 'Produto não encontrado.'
+  } finally {
+    carregandoProduto.value = false
   }
 }
 
@@ -995,7 +1000,12 @@ function onKeyDown(e: KeyboardEvent) {
 
 
 onMounted(() => {
-  carregarProduto() // <- ADICIONAR ESTA LINHA
+  carregarProduto()
+    .then(() => ensureFullProductIfNeeded())
+    .then(() => {
+      if (mostrarDescricao.value) carregarDescricao()
+    })
+    .catch(() => {})
 
   checkIsMobile()
   window.addEventListener('resize', checkIsMobile)
@@ -1007,15 +1017,10 @@ onMounted(() => {
   // define default com base no estoque atual (1 ou 0)
   checkAndSetDefaultQty()
 
-  if (!product.value) error.value = 'Produto não carregado.'
+  // ❌ REMOVER ESTA LINHA (não pode mais existir)
+  // if (!product.value) error.value = 'Produto não carregado.'
 
   isTouchDevice.value = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-
-  ensureFullProductIfNeeded()
-    .then(() => {
-      if (mostrarDescricao.value) carregarDescricao()
-    })
-    .catch(() => {})
 
   // suporte teclado
   window.addEventListener('keydown', onKeyDown)
@@ -1041,7 +1046,11 @@ watch(
   () => route.params.id,
   () => {
     carregarProduto()
-  }
+      .then(() => ensureFullProductIfNeeded())
+      .then(() => { if (mostrarDescricao.value) carregarDescricao() })
+      .catch(() => {})
+  },
+  { immediate: true }
 )
 
 </script>
